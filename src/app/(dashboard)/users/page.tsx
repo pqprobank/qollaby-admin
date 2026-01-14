@@ -7,9 +7,12 @@ import {
   getUserStats,
   updateUserRole,
   deleteUserProfile,
+  getPlans,
+  getUsersSubscriptionInfo,
   UserListResult,
+  Plan,
 } from "@/lib/user-actions";
-import { Profile, UserRole } from "@/types/profile.types";
+import { Profile, UserRole, UserSubscriptionInfo } from "@/types/profile.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +59,8 @@ import {
   ChevronRight,
   Loader2,
   RefreshCw,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 
 export default function UsersPage() {
@@ -68,6 +73,9 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [subscriptionFilter, setSubscriptionFilter] = useState<string>("all");
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [usersSubscription, setUsersSubscription] = useState<Map<string, UserSubscriptionInfo>>(new Map());
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: Profile | null }>({
     open: false,
@@ -82,16 +90,26 @@ export default function UsersPage() {
         limit: 10,
         search: search || undefined,
         role: roleFilter,
+        planId: subscriptionFilter,
       });
       setUsers(result.users);
       setTotalPages(result.totalPages);
       setTotal(result.total);
+
+      // Fetch subscription info for all users
+      if (result.users.length > 0) {
+        const userIds = result.users.map((u) => u.userId);
+        const subscriptionInfo = await getUsersSubscriptionInfo(userIds);
+        setUsersSubscription(subscriptionInfo);
+      } else {
+        setUsersSubscription(new Map());
+      }
     } catch (error) {
       console.error("Failed to fetch users:", error);
     } finally {
       setLoading(false);
     }
-  }, [page, search, roleFilter]);
+  }, [page, search, roleFilter, subscriptionFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -102,18 +120,28 @@ export default function UsersPage() {
     }
   }, []);
 
+  const fetchPlans = useCallback(async () => {
+    try {
+      const plansData = await getPlans();
+      setPlans(plansData);
+    } catch (error) {
+      console.error("Failed to fetch plans:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+    fetchPlans();
+  }, [fetchStats, fetchPlans]);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, roleFilter]);
+  }, [search, roleFilter, subscriptionFilter]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,11 +240,11 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <Card className="bg-card/50 border-border/50">
         <CardContent className="pt-6">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          <form onSubmit={handleSearch}>
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search users..."
@@ -225,36 +253,6 @@ export default function UsersPage() {
                 className="pl-10 bg-input/50 border-border/50"
               />
             </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={roleFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setRoleFilter("all")}
-                className={roleFilter === "all" ? "bg-primary" : "bg-secondary/50"}
-              >
-                All
-              </Button>
-              <Button
-                type="button"
-                variant={roleFilter === "admin" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setRoleFilter("admin")}
-                className={roleFilter === "admin" ? "bg-primary" : "bg-secondary/50"}
-              >
-                <Shield className="h-3 w-3 mr-1" />
-                Admins
-              </Button>
-              <Button
-                type="button"
-                variant={roleFilter === "user" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setRoleFilter("user")}
-                className={roleFilter === "user" ? "bg-primary" : "bg-secondary/50"}
-              >
-                Users
-              </Button>
-            </div>
           </form>
         </CardContent>
       </Card>
@@ -262,38 +260,136 @@ export default function UsersPage() {
       {/* Users table */}
       <Card className="bg-card/50 border-border/50">
         <CardContent className="pt-6">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-48" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <Skeleton className="h-6 w-16" />
-                  <Skeleton className="h-8 w-8" />
-                </div>
-              ))}
-            </div>
-          ) : users.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No users found</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/50 hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">User</TableHead>
-                  <TableHead className="text-muted-foreground">Email</TableHead>
-                  <TableHead className="text-muted-foreground">Role</TableHead>
-                  <TableHead className="text-muted-foreground">Joined</TableHead>
-                  <TableHead className="text-muted-foreground w-[50px]">Actions</TableHead>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border/50 hover:bg-transparent">
+                <TableHead className="text-muted-foreground">User</TableHead>
+                <TableHead className="text-muted-foreground">Email</TableHead>
+                <TableHead className="text-muted-foreground">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 -ml-3 hover:bg-secondary/50">
+                        Role
+                        <ChevronDown className="ml-1 h-3 w-3" />
+                        {roleFilter !== "all" && (
+                          <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
+                            {roleFilter === "admin" ? "Admin" : "User"}
+                          </Badge>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-card border-border/50">
+                      <DropdownMenuItem
+                        onClick={() => setRoleFilter("all")}
+                        className="cursor-pointer"
+                      >
+                        {roleFilter === "all" && <Check className="h-4 w-4 mr-2" />}
+                        <span className={roleFilter !== "all" ? "ml-6" : ""}>All</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setRoleFilter("admin")}
+                        className="cursor-pointer"
+                      >
+                        {roleFilter === "admin" && <Check className="h-4 w-4 mr-2" />}
+                        <span className={roleFilter !== "admin" ? "ml-6" : ""}>Admin</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setRoleFilter("user")}
+                        className="cursor-pointer"
+                      >
+                        {roleFilter === "user" && <Check className="h-4 w-4 mr-2" />}
+                        <span className={roleFilter !== "user" ? "ml-6" : ""}>User</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 -ml-3 hover:bg-secondary/50">
+                        Subscription
+                        <ChevronDown className="ml-1 h-3 w-3" />
+                        {subscriptionFilter !== "all" && (
+                          <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
+                            {subscriptionFilter === "none"
+                              ? "None"
+                              : plans.find((p) => p.id === subscriptionFilter)?.name || "..."}
+                          </Badge>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="bg-card border-border/50">
+                      <DropdownMenuItem
+                        onClick={() => setSubscriptionFilter("all")}
+                        className="cursor-pointer"
+                      >
+                        {subscriptionFilter === "all" && <Check className="h-4 w-4 mr-2" />}
+                        <span className={subscriptionFilter !== "all" ? "ml-6" : ""}>All</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setSubscriptionFilter("none")}
+                        className="cursor-pointer"
+                      >
+                        {subscriptionFilter === "none" && <Check className="h-4 w-4 mr-2" />}
+                        <span className={subscriptionFilter !== "none" ? "ml-6" : ""}>No Subscription</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-border/50" />
+                      {plans.map((plan) => (
+                        <DropdownMenuItem
+                          key={plan.id}
+                          onClick={() => setSubscriptionFilter(plan.id)}
+                          className="cursor-pointer"
+                        >
+                          {subscriptionFilter === plan.id && <Check className="h-4 w-4 mr-2" />}
+                          <span className={subscriptionFilter !== plan.id ? "ml-6" : ""}>{plan.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead className="text-muted-foreground">Business Profile</TableHead>
+                <TableHead className="text-muted-foreground">Joined</TableHead>
+                <TableHead className="text-muted-foreground w-[50px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                // Loading skeleton rows
+                [...Array(5)].map((_, i) => (
+                  <TableRow key={i} className="border-border/30">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-20" />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-12" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              ) : users.length === 0 ? (
+                // Empty state
+                <TableRow>
+                  <TableCell colSpan={7} className="h-48">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <Users className="h-12 w-12 mb-4 opacity-50" />
+                      <p>No users found</p>
+                      {(roleFilter !== "all" || subscriptionFilter !== "all") && (
+                        <p className="text-sm mt-2">Try adjusting your filters</p>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
+              ) : (
+                // User rows
+                users.map((user) => (
                   <TableRow
                     key={user.$id}
                     className="border-border/30 hover:bg-secondary/30 cursor-pointer"
@@ -326,8 +422,21 @@ export default function UsersPage() {
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="border-border/50 text-muted-foreground">
-                          User {!user.role && <span className="text-xs opacity-50">(default)</span>}
+                          User
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <SubscriptionCell subscriptionInfo={usersSubscription.get(user.userId)} />
+                    </TableCell>
+                    <TableCell>
+                      {user.hasBusinessProfile ? (
+                        <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+                          <Check className="h-3 w-3 mr-1" />
+                          Created
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Not Created</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -387,10 +496,10 @@ export default function UsersPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                ))
+              )}
+            </TableBody>
+          </Table>
 
           {/* Pagination */}
           {!loading && totalPages > 1 && (
@@ -450,6 +559,31 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+interface SubscriptionCellProps {
+  subscriptionInfo: UserSubscriptionInfo | undefined;
+}
+
+function SubscriptionCell({ subscriptionInfo }: SubscriptionCellProps) {
+  if (!subscriptionInfo || !subscriptionInfo.hasSubscription) {
+    return <span className="text-muted-foreground text-sm">No Subscription</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm">{subscriptionInfo.planName || "Unknown"}</span>
+      {subscriptionInfo.isExpired ? (
+        <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-xs">
+          Expired
+        </Badge>
+      ) : (
+        <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+          Active
+        </Badge>
+      )}
     </div>
   );
 }

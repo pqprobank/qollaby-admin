@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getUserById, updateUserRole, deleteUserProfile } from "@/lib/user-actions";
-import { Profile, UserRole } from "@/types/profile.types";
+import { getUserById, updateUserRole, deleteUserProfile, getUserSubscriptionInfo, getUserContentStats } from "@/lib/user-actions";
+import { Profile, UserRole, UserSubscriptionInfo, UserContentStats } from "@/types/profile.types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -34,6 +34,9 @@ import {
   Briefcase,
   Loader2,
   AlertTriangle,
+  CreditCard,
+  FileText,
+  Megaphone,
 } from "lucide-react";
 
 export default function UserDetailPage() {
@@ -43,6 +46,8 @@ export default function UserDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<Profile | null>(null);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<UserSubscriptionInfo | null>(null);
+  const [contentStats, setContentStats] = useState<UserContentStats | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
 
@@ -51,6 +56,16 @@ export default function UserDetailPage() {
     try {
       const userData = await getUserById(userId);
       setUser(userData);
+      
+      // Fetch subscription info and content stats in parallel
+      if (userData) {
+        const [subInfo, stats] = await Promise.all([
+          getUserSubscriptionInfo(userData.userId),
+          getUserContentStats(userData.userId),
+        ]);
+        setSubscriptionInfo(subInfo);
+        setContentStats(stats);
+      }
     } catch (error) {
       console.error("Failed to fetch user:", error);
     } finally {
@@ -261,6 +276,19 @@ export default function UserDetailPage() {
                     value={user.hasBusinessProfile ? "Created" : "Not created"}
                     muted={!user.hasBusinessProfile}
                   />
+                  {/* Subscription Info */}
+                  <SubscriptionRow subscriptionInfo={subscriptionInfo} />
+                  {/* Content Stats */}
+                  <InfoRow
+                    icon={FileText}
+                    label="Posts"
+                    value={contentStats?.postCount?.toString() || "0"}
+                  />
+                  <InfoRow
+                    icon={Megaphone}
+                    label="Ads"
+                    value={contentStats?.adCount?.toString() || "0"}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -351,11 +379,80 @@ function InfoRow({ icon: Icon, label, value, mono, muted, highlight }: InfoRowPr
         className={`
           ${mono ? "font-mono text-sm" : ""}
           ${muted ? "text-muted-foreground" : ""}
-          ${highlight ? "text-primary font-medium" : ""}
+          ${highlight ? "text-destructive font-medium" : ""}
         `}
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+interface SubscriptionRowProps {
+  subscriptionInfo: UserSubscriptionInfo | null;
+}
+
+function SubscriptionRow({ subscriptionInfo }: SubscriptionRowProps) {
+  if (!subscriptionInfo) {
+    return (
+      <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <CreditCard className="h-4 w-4" />
+          <span>Subscription</span>
+        </div>
+        <Skeleton className="h-5 w-32" />
+      </div>
+    );
+  }
+
+  if (!subscriptionInfo.hasSubscription) {
+    return (
+      <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <CreditCard className="h-4 w-4" />
+          <span>Subscription</span>
+        </div>
+        <span className="text-muted-foreground">No Subscription</span>
+      </div>
+    );
+  }
+
+  const formatExpiresAt = (dateStr: string | null) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <CreditCard className="h-4 w-4" />
+        <span>Subscription</span>
+      </div>
+      <div className="flex items-center gap-3">
+        {/* Plan Name */}
+        <span className="font-medium">{subscriptionInfo.planName || "Unknown Plan"}</span>
+        {/* Expires At */}
+        {subscriptionInfo.expiresAt && (
+          <span className={subscriptionInfo.isExpired ? "text-destructive" : "text-muted-foreground"}>
+            {subscriptionInfo.isExpired ? "Expired: " : "Expires: "}
+            {formatExpiresAt(subscriptionInfo.expiresAt)}
+          </span>
+        )}
+        {/* Status Badge */}
+        {subscriptionInfo.isExpired ? (
+          <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+            Expired
+          </Badge>
+        ) : (
+          <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
+            Active
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }
