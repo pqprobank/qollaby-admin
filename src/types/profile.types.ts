@@ -20,9 +20,7 @@ export interface UserSubscriptionInfo {
   planName: string | null;
   expiresAt: string | null;
   isExpired: boolean;
-}
-
-export interface UserContentStats {
+}export interface UserContentStats {
   postCount: number;
   adCount: number;
 }
