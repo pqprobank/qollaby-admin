@@ -455,8 +455,7 @@ export default function CategoriesPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead className="text-muted-foreground w-[40%]">Category</TableHead>
-                <TableHead className="text-muted-foreground">Icon</TableHead>
+                <TableHead className="text-muted-foreground w-[50%]">Category</TableHead>
                 <TableHead className="text-muted-foreground">Color</TableHead>
                 <TableHead className="text-muted-foreground">Order</TableHead>
                 <TableHead className="text-muted-foreground w-[100px]">Actions</TableHead>
@@ -474,7 +473,6 @@ export default function CategoriesPage() {
                       </div>
                     </TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                   </TableRow>
@@ -482,7 +480,7 @@ export default function CategoriesPage() {
               ) : filteredMainCategories.length === 0 ? (
                 // Empty state
                 <TableRow>
-                  <TableCell colSpan={5} className="h-48">
+                  <TableCell colSpan={4} className="h-48">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <FolderTree className="h-12 w-12 mb-4 opacity-50" />
                       <p>No categories found</p>
@@ -523,16 +521,21 @@ export default function CategoriesPage() {
                                 <span className="w-4" />
                               )}
                             </Button>
-                            <div
-                              className="h-8 w-8 rounded flex items-center justify-center"
-                              style={{ 
-                                background: category.colorStart && category.colorEnd 
-                                  ? `linear-gradient(135deg, ${category.colorStart}, ${category.colorEnd})`
-                                  : category.colorStart || "#666" 
-                              }}
-                            >
-                              <Folder className="h-4 w-4 text-white" />
-                            </div>
+                            {(() => {
+                              const IconComponent = getIconByName(category.icon);
+                              return (
+                                <div
+                                  className="h-8 w-8 rounded flex items-center justify-center"
+                                  style={{ 
+                                    background: category.colorStart && category.colorEnd 
+                                      ? `linear-gradient(135deg, ${category.colorStart}, ${category.colorEnd})`
+                                      : category.colorStart || "#666" 
+                                  }}
+                                >
+                                  <IconComponent className="h-4 w-4 text-white" />
+                                </div>
+                              );
+                            })()}
                             <div>
                               <p className="font-medium">{category.name}</p>
                               <p className="text-xs text-muted-foreground">
@@ -540,17 +543,6 @@ export default function CategoriesPage() {
                               </p>
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {(() => {
-                            const IconComponent = getIconByName(category.icon);
-                            return (
-                              <div className="flex items-center gap-2">
-                                <IconComponent className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">{category.icon}</span>
-                              </div>
-                            );
-                          })()}
                         </TableCell>
                         <TableCell>
                           {/* Color preview */}
@@ -634,19 +626,6 @@ export default function CategoriesPage() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  {sub.icon ? (() => {
-                                    const IconComponent = getIconByName(sub.icon);
-                                    return (
-                                      <div className="flex items-center gap-2">
-                                        <IconComponent className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-xs text-muted-foreground">{sub.icon}</span>
-                                      </div>
-                                    );
-                                  })() : (
-                                    <span className="text-muted-foreground">-</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
                                   <span className="text-sm text-muted-foreground">-</span>
                                 </TableCell>
                                 <TableCell className="text-muted-foreground text-sm">
@@ -683,7 +662,7 @@ export default function CategoriesPage() {
                               {/* Sponsor Ads for this subcategory */}
                               {isLoadingAds ? (
                                 <TableRow className="border-border/20 bg-gradient-to-r from-amber-500/5 to-transparent">
-                                  <TableCell colSpan={5} className="py-3">
+                                  <TableCell colSpan={4} className="py-3">
                                     <div className="flex items-center gap-2 pl-16">
                                       <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
                                       <span className="text-xs text-muted-foreground">Loading sponsors...</span>
