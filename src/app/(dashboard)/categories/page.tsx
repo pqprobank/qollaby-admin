@@ -895,13 +895,19 @@ export default function CategoriesPage() {
             <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteDialog.category?.type === "category" ? (
-                <>
-                  Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
-                  <br />
-                  <span className="text-destructive">
-                    This will also delete all {getSubcategories(deleteDialog.category?.value || "").length} subcategories.
-                  </span>
-                </>
+                (() => {
+                  const subcategoryCount = getSubcategories(deleteDialog.category?.value || "").length;
+                  const totalItems = subcategoryCount + 1; // 1 for the main category itself
+                  return (
+                    <>
+                      Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
+                      <br />
+                      <span className="text-destructive">
+                        This will permanently delete all {totalItems} items in this category ({subcategoryCount} subcategories).
+                      </span>
+                    </>
+                  );
+                })()
               ) : (
                 <>
                   Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
