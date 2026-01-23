@@ -157,6 +157,95 @@ export async function getUserByUserId(userId: string): Promise<Profile | null> {
 }
 
 /**
+ * Business Profile type
+ */
+export interface BusinessProfile {
+  $id: string;
+  userId: string;
+  businessName?: string;
+  locationAddress?: string;
+  category?: string;
+  subCategory?: string;
+  $createdAt: string;
+  $updatedAt: string;
+}
+
+/**
+ * Parsed Business Profile for display
+ */
+export interface ParsedBusinessProfile {
+  userId: string;
+  ownerName: string;
+  ownerEmail: string;
+  state: string;
+  city: string;
+  category: string;
+  subcategory: string;
+}
+
+/**
+ * Parse location address to extract city and state
+ * Format: "Testarossa Winery, College Avenue, Los Gatos, CA, USA"
+ */
+function parseLocationAddress(locationAddress: string | undefined): { city: string; state: string } {
+  if (!locationAddress) {
+    return { city: "N/A", state: "N/A" };
+  }
+
+  const parts = locationAddress.split(",").map((p) => p.trim());
+  
+  // Typical format: "Business, Street, City, State, Country"
+  // We want the second-to-last (State) and third-to-last (City)
+  if (parts.length >= 3) {
+    // State is usually the second to last part (e.g., "CA")
+    const state = parts[parts.length - 2] || "N/A";
+    // City is usually the third to last part (e.g., "Los Gatos")
+    const city = parts[parts.length - 3] || "N/A";
+    return { city, state };
+  } else if (parts.length === 2) {
+    return { city: parts[0], state: parts[1] };
+  } else {
+    return { city: locationAddress, state: "N/A" };
+  }
+}
+
+/**
+ * Get user's business profile
+ */
+export async function getUserBusinessProfile(
+  userId: string,
+  userProfile: Profile
+): Promise<ParsedBusinessProfile | null> {
+  try {
+    const res = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.BUSINESS_PROFILE,
+      [Query.equal("userId", userId), Query.limit(1)]
+    );
+
+    if (res.documents.length === 0) {
+      return null;
+    }
+
+    const businessProfile = res.documents[0] as unknown as BusinessProfile;
+    const { city, state } = parseLocationAddress(businessProfile.locationAddress);
+
+    return {
+      userId: businessProfile.userId,
+      ownerName: `${userProfile.firstName} ${userProfile.lastName}`.trim() || "N/A",
+      ownerEmail: userProfile.email || "N/A",
+      state,
+      city,
+      category: businessProfile.category || "N/A",
+      subcategory: businessProfile.subCategory || "N/A",
+    };
+  } catch (error) {
+    console.error("Error fetching business profile:", error);
+    return null;
+  }
+}
+
+/**
  * Update user role (set/remove admin)
  */
 export async function updateUserRole(profileId: string, role: UserRole): Promise<Profile> {
@@ -1341,5 +1430,174 @@ export async function getAdsLikeCounts(adIds: string[]): Promise<Map<string, num
     console.error("Error fetching ads like counts:", error);
     adIds.forEach((id) => result.set(id, 0));
     return result;
+  }
+}
+
+// ==================== User Registration Stats ====================
+
+export interface RegistrationStats {
+  totalUsers: number;
+  dailyRegistrations: number; // Daily registrations
+  monthlyRegistrations: number; // Monthly registrations
+  yearlyRegistrations: number; // Yearly registrations
+}
+
+export interface DailyRegistrationTrend {
+  day: number;
+  count: number;
+}
+
+export interface MonthlyRegistrationTrend {
+  month: number;
+  count: number;
+}
+
+// Helper to format date as YYYY-MM-DD in local timezone
+const formatLocalDate = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+/**
+ * Get user registration statistics for a specific date
+ */
+export async function getRegistrationStats(
+  year: number,
+  month: number,
+  day: number
+): Promise<RegistrationStats> {
+  try {
+    // Get total users
+    const totalRes = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.PROFILE,
+      [Query.limit(1)]
+    );
+    const totalUsers = totalRes.total;
+
+    // Get all profiles to analyze registration dates
+    const allProfiles = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.PROFILE,
+      [Query.limit(10000)]
+    );
+
+    // Calculate daily, monthly, yearly registrations
+    let dailyRegistrations = 0;
+    let monthlyRegistrations = 0;
+    let yearlyRegistrations = 0;
+
+    // Use local timezone for date comparison
+    const targetDateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    allProfiles.documents.forEach((doc) => {
+      const createdAt = new Date(doc.$createdAt);
+      // Use local timezone
+      const createdDateStr = formatLocalDate(createdAt);
+      const createdYear = createdAt.getFullYear();
+      const createdMonth = createdAt.getMonth() + 1;
+
+      // Same day (local timezone)
+      if (createdDateStr === targetDateStr) {
+        dailyRegistrations++;
+      }
+
+      // Same month and year (local timezone)
+      if (createdYear === year && createdMonth === month) {
+        monthlyRegistrations++;
+      }
+
+      // Same year (local timezone)
+      if (createdYear === year) {
+        yearlyRegistrations++;
+      }
+    });
+
+    return {
+      totalUsers,
+      dailyRegistrations,
+      monthlyRegistrations,
+      yearlyRegistrations,
+    };
+  } catch (error) {
+    console.error("Error fetching registration stats:", error);
+    return {
+      totalUsers: 0,
+      dailyRegistrations: 0,
+      monthlyRegistrations: 0,
+      yearlyRegistrations: 0,
+    };
+  }
+}
+
+/**
+ * Get daily registration trend for a specific month
+ */
+export async function getDailyRegistrationTrend(
+  year: number,
+  month: number
+): Promise<DailyRegistrationTrend[]> {
+  try {
+    const allProfiles = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.PROFILE,
+      [Query.limit(10000)]
+    );
+
+    // Get days in month
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dailyCounts: DailyRegistrationTrend[] = [];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      // Use local timezone for date comparison
+      const targetDateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+      const count = allProfiles.documents.filter((doc) => {
+        const createdAt = new Date(doc.$createdAt);
+        return formatLocalDate(createdAt) === targetDateStr;
+      }).length;
+
+      dailyCounts.push({ day, count });
+    }
+
+    return dailyCounts;
+  } catch (error) {
+    console.error("Error fetching daily registration trend:", error);
+    return [];
+  }
+}
+
+/**
+ * Get monthly registration trend for a specific year
+ */
+export async function getMonthlyRegistrationTrend(
+  year: number
+): Promise<MonthlyRegistrationTrend[]> {
+  try {
+    const allProfiles = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.PROFILE,
+      [Query.limit(10000)]
+    );
+
+    const monthlyCounts: MonthlyRegistrationTrend[] = [];
+
+    for (let month = 1; month <= 12; month++) {
+      const count = allProfiles.documents.filter((doc) => {
+        const createdAt = new Date(doc.$createdAt);
+        return (
+          createdAt.getFullYear() === year && createdAt.getMonth() + 1 === month
+        );
+      }).length;
+
+      monthlyCounts.push({ month, count });
+    }
+
+    return monthlyCounts;
+  } catch (error) {
+    console.error("Error fetching monthly registration trend:", error);
+    return [];
   }
 }

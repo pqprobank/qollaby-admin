@@ -16,17 +16,17 @@ import {
   MessageSquare,
   Megaphone,
   FolderTree,
-  CreditCard,
   MapPin,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/active-users", label: "Active Users", icon: UserPlus },
   { href: "/posts", label: "Posts", icon: FileText },
   { href: "/ads", label: "Ads", icon: Megaphone },
-  { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/appeals", label: "Appeals", icon: MessageSquare },
   { href: "/categories", label: "Categories", icon: FolderTree },
   { href: "/locations", label: "Locations", icon: MapPin },

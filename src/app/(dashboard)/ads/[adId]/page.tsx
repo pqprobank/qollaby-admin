@@ -7,12 +7,15 @@ import {
   getAdLikeCount,
   blacklistSponsorAd,
   unblacklistSponsorAd,
-  updateSponsorAdStatus,
+  getUserByUserId,
   SponsorAd,
   SponsorAdStatus,
 } from "@/lib/user-actions";
+import { Profile } from "@/types/profile.types";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getCategoryLabel, getSubCategoryLabel } from "@/lib/categories";
+import { getSlotLabel } from "@/lib/category-actions";
 import { MediaCarousel } from "@/components/ui/media-carousel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,13 +59,10 @@ export default function AdDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [ad, setAd] = useState<SponsorAd | null>(null);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [likeCount, setLikeCount] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [blacklistDialog, setBlacklistDialog] = useState(false);
-  const [statusDialog, setStatusDialog] = useState<{
-    open: boolean;
-    newStatus: SponsorAdStatus | null;
-  }>({ open: false, newStatus: null });
 
   const fetchAd = useCallback(async () => {
     setLoading(true);
@@ -73,6 +73,12 @@ export default function AdDetailPage() {
       ]);
       setAd(adData);
       setLikeCount(likes);
+      
+      // Fetch user profile
+      if (adData?.userId) {
+        const profile = await getUserByUserId(adData.userId);
+        setUserProfile(profile);
+      }
     } catch (error) {
       console.error("Failed to fetch ad:", error);
     } finally {
@@ -101,20 +107,6 @@ export default function AdDetailPage() {
     } finally {
       setActionLoading(false);
       setBlacklistDialog(false);
-    }
-  };
-
-  const handleStatusChange = async () => {
-    if (!ad || !statusDialog.newStatus) return;
-    setActionLoading(true);
-    try {
-      await updateSponsorAdStatus(adId, statusDialog.newStatus);
-      await fetchAd();
-    } catch (error) {
-      console.error("Failed to update status:", error);
-    } finally {
-      setActionLoading(false);
-      setStatusDialog({ open: false, newStatus: null });
     }
   };
 
@@ -174,21 +166,6 @@ export default function AdDetailPage() {
       return new Date(dateStr).toLocaleString("en-US");
     } catch {
       return dateStr;
-    }
-  };
-
-  const getStatusColor = (status: SponsorAdStatus) => {
-    switch (status) {
-      case "active":
-        return "bg-green-500/20 text-green-500";
-      case "pending":
-        return "bg-yellow-500/20 text-yellow-600";
-      case "expired":
-        return "bg-gray-500/20 text-gray-400";
-      case "rejected":
-        return "bg-red-500/20 text-red-500";
-      default:
-        return "bg-secondary text-muted-foreground";
     }
   };
 
@@ -294,6 +271,46 @@ export default function AdDetailPage() {
               <CardTitle className="text-lg">Content</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* User Info with Avatar */}
+              <div className="flex items-center gap-4 pb-3 border-b border-border/30">
+                <Avatar className="h-12 w-12 border-2 border-primary/30">
+                  {userProfile?.avatar ? (
+                    <AvatarImage src={userProfile.avatar} alt={userProfile.firstName} />
+                  ) : null}
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                    {userProfile ? (
+                      `${userProfile.firstName?.[0] || ""}${userProfile.lastName?.[0] || ""}`
+                    ) : (
+                      <User className="h-5 w-5" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">
+                    {userProfile 
+                      ? `${userProfile.firstName} ${userProfile.lastName}`.trim() || "Unknown"
+                      : "Loading..."}
+                  </p>
+                  <p className="text-sm text-primary truncate">
+                    {userProfile?.email || "N/A"}
+                  </p>
+                </div>
+              </div>
+              {/* Slot Position */}
+              {ad.slot !== undefined && (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Slot Position</p>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
+                      ad.slot === 0 || ad.slot === 9 || ad.slot === 19
+                        ? "bg-red-500/10 text-red-500 border border-red-500/30"
+                        : "bg-amber-500/10 text-amber-600 border border-amber-500/30"
+                    }`}
+                  >
+                    {getSlotLabel(ad.slot)}
+                  </span>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Title</p>
                 <p className="font-medium">{ad.title || "Untitled"}</p>
@@ -304,37 +321,6 @@ export default function AdDetailPage() {
                   <p className="text-sm whitespace-pre-wrap">{ad.description}</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Status Management */}
-          <Card className="bg-card/50 border-border/50">
-            <CardHeader>
-              <CardTitle className="text-lg">Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-muted-foreground">Current Status</span>
-                <span className={`px-3 py-1 rounded text-sm font-medium ${getStatusColor(ad.status)}`}>
-                  {ad.status}
-                </span>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {(["active", "pending", "expired", "rejected"] as SponsorAdStatus[]).map(
-                  (status) =>
-                    status !== ad.status && (
-                      <Button
-                        key={status}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setStatusDialog({ open: true, newStatus: status })}
-                        className="bg-secondary/30 border-border/50"
-                      >
-                        Set as {status}
-                      </Button>
-                    )
-                )}
-              </div>
             </CardContent>
           </Card>
 
@@ -411,27 +397,6 @@ export default function AdDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Status Change Dialog */}
-      <AlertDialog open={statusDialog.open} onOpenChange={(open) => setStatusDialog({ ...statusDialog, open })}>
-        <AlertDialogContent className="bg-card border-border">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Change ad status to {statusDialog.newStatus}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will update the advertisement status.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-secondary/50 border-border/50">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleStatusChange}>
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

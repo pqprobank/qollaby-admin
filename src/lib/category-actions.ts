@@ -9,12 +9,12 @@ export interface Category {
   $updatedAt: string;
   categoryId: string;
   type: "category" | "subcategory";
-  parentId?: string;      // 父分类的 value
-  value: string;          // 代码中的值
+  parentId?: string;      // Parent category value
+  value: string;          // Code value
   name: string;
-  icon: string;           // Ionicons 图标名
-  colorStart?: string;    // 渐变起始色
-  colorEnd?: string;      // 渐变结束色
+  icon: string;           // Ionicons icon name
+  colorStart?: string;    // Gradient start color
+  colorEnd?: string;      // Gradient end color
   order: number;
 }
 
@@ -41,7 +41,7 @@ export const getCategories = async (): Promise<Category[]> => {
 
 /**
  * Get all subcategories for a parent category
- * @param parentValue - 父分类的 value 字段
+ * @param parentValue - Parent category value field
  */
 export const getSubcategories = async (parentValue: string): Promise<Category[]> => {
   try {
@@ -104,19 +104,124 @@ export const updateCategory = async (
 };
 
 /**
- * Delete a category
+ * Delete posts by category
+ */
+const deletePostsByCategory = async (
+  category: string,
+  subCategory?: string
+): Promise<number> => {
+  try {
+    const queries = [Query.equal("category", category), Query.limit(100)];
+    if (subCategory) {
+      queries.push(Query.equal("subCategory", subCategory));
+    }
+
+    let deletedCount = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const postsRes = await databases.listDocuments(
+        DATABASE_ID,
+        Collections.POSTS,
+        queries
+      );
+
+      if (postsRes.documents.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const post of postsRes.documents) {
+        await databases.deleteDocument(DATABASE_ID, Collections.POSTS, post.$id);
+        deletedCount++;
+      }
+
+      // Continue if there might be more
+      hasMore = postsRes.documents.length === 100;
+    }
+
+    return deletedCount;
+  } catch (error) {
+    console.error("Error deleting posts by category:", error);
+    return 0;
+  }
+};
+
+/**
+ * Delete ads by category
+ */
+const deleteAdsByCategory = async (
+  category: string,
+  subCategory?: string
+): Promise<number> => {
+  try {
+    const queries = [Query.equal("category", category), Query.limit(100)];
+    if (subCategory) {
+      queries.push(Query.equal("subcategory", subCategory));
+    }
+
+    let deletedCount = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const adsRes = await databases.listDocuments(
+        DATABASE_ID,
+        Collections.SPONSOR_ADS,
+        queries
+      );
+
+      if (adsRes.documents.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const ad of adsRes.documents) {
+        await databases.deleteDocument(DATABASE_ID, Collections.SPONSOR_ADS, ad.$id);
+        deletedCount++;
+      }
+
+      // Continue if there might be more
+      hasMore = adsRes.documents.length === 100;
+    }
+
+    return deletedCount;
+  } catch (error) {
+    console.error("Error deleting ads by category:", error);
+    return 0;
+  }
+};
+
+/**
+ * Delete a category and its associated posts/ads
  * Note: This will also delete all subcategories if it's a main category
- * @param documentId - 文档 ID
- * @param value - 分类的 value 字段（用于删除子分类）
+ * @param documentId - Document ID
+ * @param value - Category value field (used for deleting subcategories)
+ * @param parentValue - Parent category value (for subcategories)
+ * @param deleteRelatedContent - Whether to delete related posts and ads
  */
 export const deleteCategory = async (
   documentId: string,
-  value?: string
+  value?: string,
+  parentValue?: string,
+  deleteRelatedContent: boolean = false
 ): Promise<boolean> => {
   try {
     // If it's a main category, delete all its subcategories first
     if (value) {
       const subcategories = await getSubcategories(value);
+      
+      // Delete related content for each subcategory
+      if (deleteRelatedContent) {
+        for (const sub of subcategories) {
+          await deletePostsByCategory(value, sub.value);
+          await deleteAdsByCategory(value, sub.value);
+        }
+        // Also delete posts/ads that only have the main category (no subcategory)
+        await deletePostsByCategory(value);
+        await deleteAdsByCategory(value);
+      }
+      
+      // Delete subcategory documents
       for (const sub of subcategories) {
         await databases.deleteDocument(
           DATABASE_ID,
@@ -124,6 +229,10 @@ export const deleteCategory = async (
           sub.$id
         );
       }
+    } else if (parentValue && deleteRelatedContent) {
+      // It's a subcategory - delete its related content
+      await deletePostsByCategory(parentValue, value);
+      await deleteAdsByCategory(parentValue, value);
     }
     
     // Delete the category itself
@@ -184,7 +293,7 @@ export interface AdSlotUser {
   slotLabel: string;
 }
 
-// Slot 位置规则映射
+// Slot position rules mapping
 const SLOT_RULES: Record<number, { plan: string; label: string }> = {
   0: { plan: "Dominion", label: "Feed #1" },
   1: { plan: "Essential/Professional", label: "Preference #1" },
@@ -310,5 +419,98 @@ export const getSubcategorySponsorAds = async (
   } catch (error) {
     console.error("Error fetching subcategory sponsor ads:", error);
     return [];
+  }
+};
+
+/**
+ * Get count of posts and ads using a category or subcategory
+ */
+export interface CategoryUsageStats {
+  postCount: number;
+  adCount: number;
+}
+
+export const getCategoryUsageStats = async (
+  category: string,
+  subCategory?: string
+): Promise<CategoryUsageStats> => {
+  try {
+    // Build queries for posts
+    const postQueries = [Query.equal("category", category), Query.limit(1)];
+    if (subCategory) {
+      postQueries[0] = Query.equal("category", category);
+      postQueries.push(Query.equal("subCategory", subCategory));
+    }
+
+    // Build queries for ads
+    const adQueries = [Query.equal("category", category), Query.limit(1)];
+    if (subCategory) {
+      adQueries[0] = Query.equal("category", category);
+      adQueries.push(Query.equal("subcategory", subCategory));
+    }
+
+    // Fetch counts in parallel
+    const [postsRes, adsRes] = await Promise.all([
+      databases.listDocuments(DATABASE_ID, Collections.POSTS, postQueries),
+      databases.listDocuments(DATABASE_ID, Collections.SPONSOR_ADS, adQueries),
+    ]);
+
+    return {
+      postCount: postsRes.total,
+      adCount: adsRes.total,
+    };
+  } catch (error) {
+    console.error("Error fetching category usage stats:", error);
+    return { postCount: 0, adCount: 0 };
+  }
+};
+
+/**
+ * Get total usage stats for a main category (including all subcategories)
+ */
+export const getMainCategoryUsageStats = async (
+  categoryValue: string
+): Promise<CategoryUsageStats> => {
+  try {
+    // Get all subcategories
+    const subcategories = await getSubcategories(categoryValue);
+    const subcategoryValues = subcategories.map((s) => s.value);
+
+    // Build queries - search by category value
+    const postQueries = [Query.equal("category", categoryValue), Query.limit(1)];
+    const adQueries = [Query.equal("category", categoryValue), Query.limit(1)];
+
+    // Fetch main category counts
+    const [mainPostsRes, mainAdsRes] = await Promise.all([
+      databases.listDocuments(DATABASE_ID, Collections.POSTS, postQueries),
+      databases.listDocuments(DATABASE_ID, Collections.SPONSOR_ADS, adQueries),
+    ]);
+
+    let totalPostCount = mainPostsRes.total;
+    let totalAdCount = mainAdsRes.total;
+
+    // If there are subcategories, get their counts too
+    if (subcategoryValues.length > 0) {
+      // For posts with subcategories
+      const subPostQueries = [
+        Query.equal("category", categoryValue),
+        Query.limit(1),
+      ];
+      const subAdQueries = [
+        Query.equal("category", categoryValue),
+        Query.limit(1),
+      ];
+
+      // Note: The main query already includes items with the category,
+      // so we just return the main count which includes subcategory items
+    }
+
+    return {
+      postCount: totalPostCount,
+      adCount: totalAdCount,
+    };
+  } catch (error) {
+    console.error("Error fetching main category usage stats:", error);
+    return { postCount: 0, adCount: 0 };
   }
 };

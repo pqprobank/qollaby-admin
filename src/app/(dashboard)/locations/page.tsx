@@ -122,6 +122,11 @@ export default function LocationsPage() {
   const [createOrder, setCreateOrder] = useState(1);
   const [creating, setCreating] = useState(false);
 
+  // Error state for name validation
+  const [editCityError, setEditCityError] = useState("");
+  const [editStateError, setEditStateError] = useState("");
+  const [createCityError, setCreateCityError] = useState("");
+
   const fetchLocations = useCallback(async () => {
     setLoading(true);
     try {
@@ -158,12 +163,28 @@ export default function LocationsPage() {
     setEditState(location.state);
     setEditCity(location.city);
     setEditOrder(location.order);
+    setEditCityError("");
     setEditDialog({ open: true, location });
   };
 
   const handleSaveEdit = async () => {
     if (!editDialog.location || !editCity.trim()) return;
 
+    // Check for duplicate city name within the same state
+    const trimmedCity = editCity.trim().toLowerCase();
+    const isDuplicate = locations.some(
+      (loc) =>
+        loc.$id !== editDialog.location?.$id &&
+        loc.state === editDialog.location?.state &&
+        loc.city.toLowerCase() === trimmedCity
+    );
+
+    if (isDuplicate) {
+      setEditCityError("A city with this name already exists in this state");
+      return;
+    }
+
+    setEditCityError("");
     setActionLoading(editDialog.location.$id);
     try {
       // Only update city and order, not state
@@ -219,12 +240,14 @@ export default function LocationsPage() {
     }
     setCreateCity("");
     setCreateOrder(1);
+    setCreateCityError("");
     setCreateDialog(true);
   };
 
   // State edit handlers
   const openEditStateDialog = (stateName: string) => {
     setNewStateName(stateName);
+    setEditStateError("");
     setEditStateDialog({ open: true, stateName });
   };
 
@@ -235,6 +258,20 @@ export default function LocationsPage() {
       return;
     }
 
+    // Check for duplicate state name
+    const trimmedState = newStateName.trim().toLowerCase();
+    const isDuplicate = states.some(
+      (s) =>
+        s !== editStateDialog.stateName &&
+        s.toLowerCase() === trimmedState
+    );
+
+    if (isDuplicate) {
+      setEditStateError("A state with this name already exists");
+      return;
+    }
+
+    setEditStateError("");
     setActionLoading(`state-${editStateDialog.stateName}`);
     try {
       const success = await updateStateName(editStateDialog.stateName, newStateName.trim());
@@ -298,6 +335,22 @@ export default function LocationsPage() {
     if (!createState.trim()) return;
     if (createMode === "city" && !createCity.trim()) return;
 
+    // Check for duplicate city name within the same state (only for city mode)
+    if (createMode === "city") {
+      const trimmedCity = createCity.trim().toLowerCase();
+      const isDuplicate = locations.some(
+        (loc) =>
+          loc.state === createState &&
+          loc.city.toLowerCase() === trimmedCity
+      );
+
+      if (isDuplicate) {
+        setCreateCityError("A city with this name already exists in this state");
+        return;
+      }
+    }
+
+    setCreateCityError("");
     setCreating(true);
     try {
       // Generate locationId from state and city
@@ -722,10 +775,16 @@ export default function LocationsPage() {
               <Input
                 id="editCity"
                 value={editCity}
-                onChange={(e) => setEditCity(e.target.value)}
+                onChange={(e) => {
+                  setEditCity(e.target.value);
+                  setEditCityError("");
+                }}
                 placeholder="City name"
-                className="bg-input/50 border-border/50"
+                className={`bg-input/50 ${editCityError ? "border-destructive" : "border-border/50"}`}
               />
+              {editCityError && (
+                <p className="text-xs text-destructive">{editCityError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="editOrder">Order</Label>
@@ -860,10 +919,16 @@ export default function LocationsPage() {
                   <Input
                     id="createCity"
                     value={createCity}
-                    onChange={(e) => setCreateCity(e.target.value)}
+                    onChange={(e) => {
+                      setCreateCity(e.target.value);
+                      setCreateCityError("");
+                    }}
                     placeholder="e.g., Los Angeles"
-                    className="bg-input/50 border-border/50"
+                    className={`bg-input/50 ${createCityError ? "border-destructive" : "border-border/50"}`}
                   />
+                  {createCityError && (
+                    <p className="text-xs text-destructive">{createCityError}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="createOrder">Display Order</Label>
@@ -924,10 +989,16 @@ export default function LocationsPage() {
               <Input
                 id="newStateName"
                 value={newStateName}
-                onChange={(e) => setNewStateName(e.target.value)}
+                onChange={(e) => {
+                  setNewStateName(e.target.value);
+                  setEditStateError("");
+                }}
                 placeholder="State name"
-                className="bg-input/50 border-border/50"
+                className={`bg-input/50 ${editStateError ? "border-destructive" : "border-border/50"}`}
               />
+              {editStateError && (
+                <p className="text-xs text-destructive">{editStateError}</p>
+              )}
             </div>
           </div>
           <DialogFooter>

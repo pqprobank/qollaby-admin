@@ -7,8 +7,11 @@ import {
   deleteCategory,
   createCategory,
   getSubcategorySponsorAds,
+  getCategoryUsageStats,
+  getMainCategoryUsageStats,
   Category,
   AdSlotUser,
+  CategoryUsageStats,
 } from "@/lib/category-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,8 +65,8 @@ import {
   MapPin,
   BookOpen,
   Camera,
-  ShoppingBag,
-  Briefcase,
+  ShoppingCart,
+  BriefcaseBusiness,
   LucideIcon,
   User,
   Crown,
@@ -81,8 +84,8 @@ const ICON_OPTIONS: { name: string; icon: LucideIcon; label: string }[] = [
   { name: "book", icon: BookOpen, label: "Education" },
   { name: "location", icon: MapPin, label: "Local" },
   { name: "camera", icon: Camera, label: "Media" },
-  { name: "cart", icon: ShoppingBag, label: "Shopping" },
-  { name: "briefcase", icon: Briefcase, label: "Business" },
+  { name: "cart", icon: ShoppingCart, label: "Shopping" },
+  { name: "briefcase", icon: BriefcaseBusiness, label: "Business" },
 ];
 
 // Helper to get icon component by Ionicons name
@@ -121,13 +124,45 @@ export default function CategoriesPage() {
   const [createIcon, setCreateIcon] = useState("");
   const [createColorStart, setCreateColorStart] = useState("#4ECDC4");
   const [createColorEnd, setCreateColorEnd] = useState("#6EE7DE");
-  const [createParentId, setCreateParentId] = useState("");  // 存储父分类的 value
+  const [createParentId, setCreateParentId] = useState("");  // Store parent category value
   const [createOrder, setCreateOrder] = useState(1);
   const [creating, setCreating] = useState(false);
 
   // Sponsor ads state
   const [sponsorAdsMap, setSponsorAdsMap] = useState<Map<string, AdSlotUser[]>>(new Map());
   const [loadingAds, setLoadingAds] = useState<Set<string>>(new Set());
+
+  // Error state for name validation
+  const [editNameError, setEditNameError] = useState("");
+  const [createNameError, setCreateNameError] = useState("");
+
+  // Delete usage stats
+  const [deleteUsageStats, setDeleteUsageStats] = useState<CategoryUsageStats | null>(null);
+  const [loadingUsageStats, setLoadingUsageStats] = useState(false);
+
+  // Open delete dialog and fetch usage stats
+  const openDeleteDialog = async (category: Category) => {
+    setDeleteDialog({ open: true, category });
+    setDeleteUsageStats(null);
+    setLoadingUsageStats(true);
+    
+    try {
+      let stats: CategoryUsageStats;
+      if (category.type === "category") {
+        // Main category - get stats for the category value
+        stats = await getMainCategoryUsageStats(category.value);
+      } else {
+        // Subcategory - get stats for specific category + subcategory
+        stats = await getCategoryUsageStats(category.parentId || "", category.value);
+      }
+      setDeleteUsageStats(stats);
+    } catch (error) {
+      console.error("Failed to fetch usage stats:", error);
+      setDeleteUsageStats({ postCount: 0, adCount: 0 });
+    } finally {
+      setLoadingUsageStats(false);
+    }
+  };
 
   const fetchCategories = useCallback(async () => {
     setLoading(true);
@@ -202,12 +237,28 @@ export default function CategoriesPage() {
     setEditIcon(category.icon || "");
     setEditColorStart(category.colorStart || "#4ECDC4");
     setEditColorEnd(category.colorEnd || "#6EE7DE");
+    setEditNameError("");
     setEditDialog({ open: true, category });
   };
 
   const handleSaveEdit = async () => {
     if (!editDialog.category || !editName.trim()) return;
     
+    // Check for duplicate name
+    const trimmedName = editName.trim().toLowerCase();
+    const isDuplicate = categories.some(
+      (cat) => 
+        cat.$id !== editDialog.category?.$id && 
+        cat.name.toLowerCase() === trimmedName &&
+        cat.type === editDialog.category?.type
+    );
+    
+    if (isDuplicate) {
+      setEditNameError("A category with this name already exists");
+      return;
+    }
+    
+    setEditNameError("");
     setActionLoading(editDialog.category.$id);
     try {
       const isMainCategory = editDialog.category.type === "category";
@@ -257,7 +308,9 @@ export default function CategoriesPage() {
     try {
       const success = await deleteCategory(
         deleteDialog.category.$id,
-        isMainCategory ? deleteDialog.category.value : undefined
+        isMainCategory ? deleteDialog.category.value : undefined,
+        !isMainCategory ? deleteDialog.category.parentId : undefined,
+        true // Delete related posts and ads
       );
       
       if (success) {
@@ -277,6 +330,7 @@ export default function CategoriesPage() {
         }
       }
       setDeleteDialog({ open: false, category: null });
+      setDeleteUsageStats(null);
     } catch (error) {
       console.error("Failed to delete category:", error);
     } finally {
@@ -290,8 +344,9 @@ export default function CategoriesPage() {
     setCreateIcon(type === "category" ? "color-palette" : ""); // Default icon for categories
     setCreateColorStart("#4ECDC4");
     setCreateColorEnd("#6EE7DE");
-    setCreateParentId(parentValue || "");  // 存储父分类的 value
+    setCreateParentId(parentValue || "");  // Store parent category value
     setCreateOrder(type === "category" ? mainCategories.length + 1 : 1);
+    setCreateNameError("");
     setCreateDialog(true);
   };
 
@@ -299,6 +354,20 @@ export default function CategoriesPage() {
     if (!createName.trim()) return;
     if (createType === "subcategory" && !createParentId) return;
 
+    // Check for duplicate name
+    const trimmedName = createName.trim().toLowerCase();
+    const isDuplicate = categories.some(
+      (cat) => 
+        cat.name.toLowerCase() === trimmedName &&
+        cat.type === createType
+    );
+    
+    if (isDuplicate) {
+      setCreateNameError("A category with this name already exists");
+      return;
+    }
+    
+    setCreateNameError("");
     setCreating(true);
     try {
       // Generate value from name (slug format)
@@ -352,7 +421,7 @@ export default function CategoriesPage() {
       )
     : mainCategories;
 
-  // 根据父分类的 value 获取子分类
+  // Get subcategories by parent category value
   const getSubcategories = (parentValue: string) =>
     categories.filter((c) => c.type === "subcategory" && c.parentId === parentValue);
 
@@ -587,7 +656,7 @@ export default function CategoriesPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => setDeleteDialog({ open: true, category })}
+                              onClick={() => openDeleteDialog(category)}
                               disabled={actionLoading === category.$id}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -650,7 +719,7 @@ export default function CategoriesPage() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
-                                      onClick={() => setDeleteDialog({ open: true, category: sub })}
+                                      onClick={() => openDeleteDialog(sub)}
                                       disabled={actionLoading === sub.$id}
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -776,10 +845,16 @@ export default function CategoriesPage() {
               <Input
                 id="name"
                 value={editName}
-                onChange={(e) => setEditName(e.target.value)}
+                onChange={(e) => {
+                  setEditName(e.target.value);
+                  setEditNameError("");
+                }}
                 placeholder="Category name"
-                className="bg-input/50 border-border/50"
+                className={`bg-input/50 ${editNameError ? "border-destructive" : "border-border/50"}`}
               />
+              {editNameError && (
+                <p className="text-xs text-destructive">{editNameError}</p>
+              )}
             </div>
             
             {/* Icon selector - only for main categories */}
@@ -888,33 +963,74 @@ export default function CategoriesPage() {
       {/* Delete confirmation dialog */}
       <AlertDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ open, category: null })}
+        onOpenChange={(open) => {
+          setDeleteDialog({ open, category: null });
+          if (!open) {
+            setDeleteUsageStats(null);
+          }
+        }}
       >
         <AlertDialogContent className="bg-card border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteDialog.category?.type === "category" ? (
-                (() => {
-                  const subcategoryCount = getSubcategories(deleteDialog.category?.value || "").length;
-                  const totalItems = subcategoryCount + 1; // 1 for the main category itself
-                  return (
-                    <>
-                      Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
-                      <br />
-                      <span className="text-destructive">
-                        This will permanently delete all {totalItems} items in this category ({subcategoryCount} subcategories).
-                      </span>
-                    </>
-                  );
-                })()
-              ) : (
-                <>
-                  Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
-                  <br />
-                  This action cannot be undone.
-                </>
-              )}
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {deleteDialog.category?.type === "category" ? (
+                  (() => {
+                    const subcategoryCount = getSubcategories(deleteDialog.category?.value || "").length;
+                    const totalItems = subcategoryCount + 1;
+                    return (
+                      <>
+                        <p>
+                          Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
+                        </p>
+                        <p className="text-destructive">
+                          This will permanently delete all {totalItems} items in this category ({subcategoryCount} subcategories).
+                        </p>
+                      </>
+                    );
+                  })()
+                ) : (
+                  <p>
+                    Are you sure you want to delete <strong>{deleteDialog.category?.name}</strong>?
+                  </p>
+                )}
+                
+                {/* Usage stats */}
+                <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  {loadingUsageStats ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Checking usage...
+                    </div>
+                  ) : deleteUsageStats ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-destructive">
+                        Items that will be affected:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span>
+                            <strong>{deleteUsageStats.postCount}</strong> Posts
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Megaphone className="h-4 w-4 text-muted-foreground" />
+                          <span>
+                            <strong>{deleteUsageStats.adCount}</strong> Ads
+                          </span>
+                        </div>
+                      </div>
+                      {(deleteUsageStats.postCount > 0 || deleteUsageStats.adCount > 0) && (
+                        <p className="text-xs text-destructive mt-2 font-medium">
+                          ⚠️ Warning: These posts and ads will be permanently deleted!
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -923,6 +1039,7 @@ export default function CategoriesPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={loadingUsageStats}
               className="bg-destructive hover:bg-destructive/90"
             >
               {actionLoading ? (
@@ -976,10 +1093,16 @@ export default function CategoriesPage() {
               <Input
                 id="createName"
                 value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
+                onChange={(e) => {
+                  setCreateName(e.target.value);
+                  setCreateNameError("");
+                }}
                 placeholder="Category name"
-                className="bg-input/50 border-border/50"
+                className={`bg-input/50 ${createNameError ? "border-destructive" : "border-border/50"}`}
               />
+              {createNameError && (
+                <p className="text-xs text-destructive">{createNameError}</p>
+              )}
             </div>
 
             {/* Icon (for main category only) */}

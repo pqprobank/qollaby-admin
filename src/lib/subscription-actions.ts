@@ -16,11 +16,11 @@ export interface Subscription extends Models.Document {
 }
 
 export interface SubscriptionStats {
-  activeUsers: number;           // 订阅人数
-  churnedUsers: number;          // 退订人数
-  churnRate: number;             // 退订率
-  monthlyRevenue: number;        // 月收入
-  revenueByTier: {               // 按套餐分布的收入
+  activeUsers: number;           // Number of subscribers
+  churnedUsers: number;          // Number of churned users
+  churnRate: number;             // Churn rate
+  monthlyRevenue: number;        // Monthly revenue
+  revenueByTier: {               // Revenue by plan tier
     planId: string;
     planName: string;
     revenue: number;
@@ -29,15 +29,15 @@ export interface SubscriptionStats {
   }[];
 }
 
-// 套餐颜色映射 - 根据关键词匹配
+// Plan color mapping - match by keyword
 const PLAN_COLOR_KEYWORDS: { keyword: string; color: string }[] = [
-  { keyword: "essential", color: "#22c55e" },      // 绿色
-  { keyword: "professional", color: "#3b82f6" },   // 蓝色
-  { keyword: "dominion", color: "#b91c1c" },       // 红色
+  { keyword: "essential", color: "#22c55e" },      // Green
+  { keyword: "professional", color: "#3b82f6" },   // Blue
+  { keyword: "dominion", color: "#b91c1c" },       // Red
 ];
 
 /**
- * 根据套餐名称获取颜色
+ * Get color based on plan name
  */
 function getPlanColor(planName: string): string {
   const lowerName = planName.toLowerCase();
@@ -46,15 +46,15 @@ function getPlanColor(planName: string): string {
       return color;
     }
   }
-  return "#666666"; // 默认灰色
+  return "#666666"; // Default gray
 }
 
 /**
- * 获取订阅统计数据
+ * Get subscription statistics
  */
 export async function getSubscriptionStats(): Promise<SubscriptionStats> {
   try {
-    // 1. 获取所有订阅记录
+    // 1. Get all subscription records
     const subscriptionsRes = await databases.listDocuments(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SUBSCRIPTIONS,
@@ -62,7 +62,7 @@ export async function getSubscriptionStats(): Promise<SubscriptionStats> {
     );
     const subscriptions = subscriptionsRes.documents as Subscription[];
 
-    // 2. 获取所有套餐
+    // 2. Get all plans
     const plansRes = await databases.listDocuments(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.PLANS,
@@ -72,12 +72,12 @@ export async function getSubscriptionStats(): Promise<SubscriptionStats> {
     const planMap = new Map<string, Plan>();
     plans.forEach((p) => planMap.set(p.$id, p));
 
-    // 3. 计算统计数据
+    // 3. Calculate statistics
     const totalUsers = subscriptions.length;
     const churnedUsers = subscriptions.filter((s) => s.cancelAtPeriodEnd === true).length;
     const churnRate = totalUsers > 0 ? (churnedUsers / totalUsers) * 100 : 0;
 
-    // 4. 计算月收入和按套餐分布
+    // 4. Calculate monthly revenue and distribution by plan
     const revenueByPlan = new Map<string, { revenue: number; count: number }>();
     let monthlyRevenue = 0;
 
@@ -95,7 +95,7 @@ export async function getSubscriptionStats(): Promise<SubscriptionStats> {
       }
     });
 
-    // 5. 构建按套餐分布数据
+    // 5. Build revenue by tier data
     const revenueByTier = Array.from(revenueByPlan.entries()).map(([planId, data]) => {
       const plan = planMap.get(planId);
       const planName = plan?.name || "Unknown";
@@ -110,7 +110,7 @@ export async function getSubscriptionStats(): Promise<SubscriptionStats> {
       };
     });
 
-    // 按收入降序排序
+    // Sort by revenue descending
     revenueByTier.sort((a, b) => b.revenue - a.revenue);
 
     return {
@@ -133,18 +133,18 @@ export async function getSubscriptionStats(): Promise<SubscriptionStats> {
 }
 
 /**
- * 日活月活统计结果
+ * Daily/Monthly active users statistics result
  */
 export interface ActivityStats {
-  dailyActive: number;      // 日活
-  monthlyActive: number;    // 月活
-  date: string;             // 统计日期 YYYY-MM-DD
+  dailyActive: number;      // Daily active users
+  monthlyActive: number;    // Monthly active users
+  date: string;             // Statistics date YYYY-MM-DD
   year: number;
   month: number;
 }
 
 /**
- * 日活趋势数据点
+ * Daily trend data point
  */
 export interface DailyTrendPoint {
   day: number;
@@ -153,7 +153,7 @@ export interface DailyTrendPoint {
 }
 
 /**
- * 月活趋势数据点
+ * Monthly trend data point
  */
 export interface MonthlyTrendPoint {
   year: number;
@@ -163,20 +163,20 @@ export interface MonthlyTrendPoint {
 }
 
 /**
- * 活跃度趋势数据
+ * Activity trend data
  */
 export interface ActivityTrend {
-  dailyTrend: DailyTrendPoint[];    // 当月每天的日活
-  monthlyTrend: MonthlyTrendPoint[]; // 近6个月的月活
-  totalDailyActive: number;          // 当天日活
-  totalMonthlyActive: number;        // 当月月活
+  dailyTrend: DailyTrendPoint[];    // Daily active for each day of the month
+  monthlyTrend: MonthlyTrendPoint[]; // Monthly active for last 6 months
+  totalDailyActive: number;          // Today's daily active
+  totalMonthlyActive: number;        // This month's monthly active
 }
 
 /**
- * 获取活跃度趋势数据
- * @param year 年份
- * @param month 月份 (1-12)
- * @param day 日期 (1-31)
+ * Get activity trend data
+ * @param year Year
+ * @param month Month (1-12)
+ * @param day Day (1-31)
  */
 export async function getActivityTrend(
   year: number,
@@ -184,7 +184,7 @@ export async function getActivityTrend(
   day: number
 ): Promise<ActivityTrend> {
   try {
-    // 获取所有订阅记录
+    // Get all subscription records
     const subscriptionsRes = await databases.listDocuments(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SUBSCRIPTIONS,
@@ -192,10 +192,10 @@ export async function getActivityTrend(
     );
     const subscriptions = subscriptionsRes.documents as Subscription[];
 
-    // 计算当月天数
+    // Calculate days in month
     const daysInMonth = new Date(year, month, 0).getDate();
 
-    // 构建当月每天的日活数据
+    // Build daily active data for the month
     const dailyTrend: DailyTrendPoint[] = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -206,7 +206,7 @@ export async function getActivityTrend(
       dailyTrend.push({ day: d, date: dateStr, count });
     }
 
-    // 构建近6个月的月活数据
+    // Build monthly active data for last 6 months
     const monthlyTrend: MonthlyTrendPoint[] = [];
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     
@@ -214,7 +214,7 @@ export async function getActivityTrend(
       let targetYear = year;
       let targetMonth = month - i;
       
-      // 处理跨年
+      // Handle year crossover
       while (targetMonth <= 0) {
         targetMonth += 12;
         targetYear -= 1;
@@ -234,14 +234,14 @@ export async function getActivityTrend(
       });
     }
 
-    // 当天日活
+    // Today's daily active
     const todayStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const totalDailyActive = subscriptions.filter((sub) => {
       if (!sub.currentPeriodStart) return false;
       return sub.currentPeriodStart.split("T")[0] === todayStr;
     }).length;
 
-    // 当月月活
+    // This month's monthly active
     const currentMonthPrefix = `${year}-${String(month).padStart(2, "0")}`;
     const totalMonthlyActive = subscriptions.filter((sub) => {
       if (!sub.currentPeriodStart) return false;
@@ -266,10 +266,10 @@ export async function getActivityTrend(
 }
 
 /**
- * 获取日活月活统计
- * @param year 年份
- * @param month 月份 (1-12)
- * @param day 日期 (1-31)，用于计算日活
+ * Get daily/monthly active statistics
+ * @param year Year
+ * @param month Month (1-12)
+ * @param day Day (1-31), used for calculating daily active
  */
 export async function getActivityStats(
   year: number,
@@ -277,7 +277,7 @@ export async function getActivityStats(
   day?: number
 ): Promise<ActivityStats> {
   try {
-    // 获取所有订阅记录
+    // Get all subscription records
     const subscriptionsRes = await databases.listDocuments(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SUBSCRIPTIONS,
@@ -285,18 +285,18 @@ export async function getActivityStats(
     );
     const subscriptions = subscriptionsRes.documents as Subscription[];
 
-    // 计算日活：currentPeriodStart 与指定日期是同一天
+    // Calculate daily active: currentPeriodStart matches the target date
     const targetDate = day
       ? `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
       : `${year}-${String(month).padStart(2, "0")}-01`;
 
     const dailyActive = subscriptions.filter((sub) => {
       if (!sub.currentPeriodStart) return false;
-      const startDate = sub.currentPeriodStart.split("T")[0]; // 提取 YYYY-MM-DD
+      const startDate = sub.currentPeriodStart.split("T")[0]; // Extract YYYY-MM-DD
       return startDate === targetDate;
     }).length;
 
-    // 计算月活：currentPeriodStart 在指定年月内
+    // Calculate monthly active: currentPeriodStart within the target month
     const monthPrefix = `${year}-${String(month).padStart(2, "0")}`;
     const monthlyActive = subscriptions.filter((sub) => {
       if (!sub.currentPeriodStart) return false;
@@ -324,7 +324,7 @@ export async function getActivityStats(
 }
 
 /**
- * 获取所有套餐
+ * Get all plans
  */
 export async function getAllPlans(): Promise<Plan[]> {
   try {
@@ -341,7 +341,7 @@ export async function getAllPlans(): Promise<Plan[]> {
 }
 
 /**
- * 获取订阅列表（带分页）
+ * Get subscription list (with pagination)
  */
 export interface SubscriptionListParams {
   page?: number;

@@ -29,6 +29,7 @@ import {
   unblacklistPost,
 } from "@/lib/user-actions";
 import { Profile } from "@/types/profile.types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -296,20 +297,30 @@ export default function PostDetailPage() {
               <CardTitle className="text-lg">Content</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* User Info */}
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">User Name</p>
-                <p className="font-medium">
-                  {userProfile 
-                    ? `${userProfile.firstName} ${userProfile.lastName}`.trim() || "Unknown"
-                    : "Loading..."}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Email</p>
-                <p className="font-medium text-primary">
-                  {userProfile?.email || "N/A"}
-                </p>
+              {/* User Info with Avatar */}
+              <div className="flex items-center gap-4 pb-3 border-b border-border/30">
+                <Avatar className="h-12 w-12 border-2 border-primary/30">
+                  {userProfile?.avatar ? (
+                    <AvatarImage src={userProfile.avatar} alt={userProfile.firstName} />
+                  ) : null}
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                    {userProfile ? (
+                      `${userProfile.firstName?.[0] || ""}${userProfile.lastName?.[0] || ""}`
+                    ) : (
+                      <User className="h-5 w-5" />
+                    )}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">
+                    {userProfile 
+                      ? `${userProfile.firstName} ${userProfile.lastName}`.trim() || "Unknown"
+                      : "Loading..."}
+                  </p>
+                  <p className="text-sm text-primary truncate">
+                    {userProfile?.email || "N/A"}
+                  </p>
+                </div>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Title</p>
