@@ -55,20 +55,20 @@ function getPlanColor(planName: string): string {
 export async function getSubscriptionStats(): Promise<SubscriptionStats> {
   try {
     // 1. Get all subscription records
-    const subscriptionsRes = await databases.listDocuments(
+    const subscriptionsRes = await databases.listDocuments<Subscription>(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SUBSCRIPTIONS,
       [Query.limit(1000)]
     );
-    const subscriptions = subscriptionsRes.documents as Subscription[];
+    const subscriptions = subscriptionsRes.documents;
 
     // 2. Get all plans
-    const plansRes = await databases.listDocuments(
+    const plansRes = await databases.listDocuments<Plan>(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.PLANS,
       [Query.limit(100)]
     );
-    const plans = plansRes.documents as Plan[];
+    const plans = plansRes.documents;
     const planMap = new Map<string, Plan>();
     plans.forEach((p) => planMap.set(p.$id, p));
 
@@ -185,12 +185,12 @@ export async function getActivityTrend(
 ): Promise<ActivityTrend> {
   try {
     // Get all subscription records
-    const subscriptionsRes = await databases.listDocuments(
+    const subscriptionsRes = await databases.listDocuments<Subscription>(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SUBSCRIPTIONS,
       [Query.limit(5000)]
     );
-    const subscriptions = subscriptionsRes.documents as Subscription[];
+    const subscriptions = subscriptionsRes.documents;
 
     // Calculate days in month
     const daysInMonth = new Date(year, month, 0).getDate();
@@ -278,12 +278,12 @@ export async function getActivityStats(
 ): Promise<ActivityStats> {
   try {
     // Get all subscription records
-    const subscriptionsRes = await databases.listDocuments(
+    const subscriptionsRes = await databases.listDocuments<Subscription>(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SUBSCRIPTIONS,
       [Query.limit(5000)]
     );
-    const subscriptions = subscriptionsRes.documents as Subscription[];
+    const subscriptions = subscriptionsRes.documents;
 
     // Calculate daily active: currentPeriodStart matches the target date
     const targetDate = day
@@ -328,12 +328,12 @@ export async function getActivityStats(
  */
 export async function getAllPlans(): Promise<Plan[]> {
   try {
-    const res = await databases.listDocuments(
+    const res = await databases.listDocuments<Plan>(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.PLANS,
       [Query.orderAsc("priceMonthly")]
     );
-    return res.documents as Plan[];
+    return res.documents;
   } catch (error) {
     console.error("Failed to fetch plans:", error);
     return [];
@@ -374,12 +374,12 @@ export async function getSubscriptions(
     }
 
     const [subsRes, plansRes] = await Promise.all([
-      databases.listDocuments(
+      databases.listDocuments<Subscription>(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
         Collections.SUBSCRIPTIONS,
         queries
       ),
-      databases.listDocuments(
+      databases.listDocuments<Plan>(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
         Collections.PLANS,
         [Query.limit(100)]
@@ -387,9 +387,9 @@ export async function getSubscriptions(
     ]);
 
     const planMap = new Map<string, Plan>();
-    (plansRes.documents as Plan[]).forEach((p) => planMap.set(p.$id, p));
+    plansRes.documents.forEach((p) => planMap.set(p.$id, p));
 
-    const subscriptions = (subsRes.documents as Subscription[]).map((sub) => ({
+    const subscriptions = subsRes.documents.map((sub) => ({
       ...sub,
       plan: planMap.get(sub.planId),
     }));

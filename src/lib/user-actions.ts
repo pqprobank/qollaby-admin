@@ -1207,6 +1207,7 @@ export interface SponsorAd {
   expiresAt: string;
   // Blacklist status (admin moderation)
   isBlacklisted?: boolean;
+  slot?: number;
 }
 
 export interface SponsorAdListParams {
