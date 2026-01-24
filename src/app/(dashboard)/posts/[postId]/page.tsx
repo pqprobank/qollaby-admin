@@ -338,6 +338,20 @@ export default function PostDetailPage() {
                   <p className="text-sm whitespace-pre-wrap">{post.description}</p>
                 </div>
               )}
+              {post.externalLink && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">External Link</p>
+                  <a
+                    href={post.externalLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    {post.externalLink}
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
 

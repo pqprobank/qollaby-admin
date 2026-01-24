@@ -5,17 +5,19 @@ import { useRouter } from "next/navigation";
 import {
   getAppeals,
   getPostById,
+  getUserByUserId,
   approveAppeal,
   rejectAppeal,
   getPendingAppealsCount,
   Appeal,
-  AppealListResult,
   Post,
 } from "@/lib/user-actions";
+import { Profile } from "@/types/profile.types";
 import { getImageUrl, isVideoUrl } from "@/lib/appwrite";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,10 +41,13 @@ import {
   User,
   ExternalLink,
   Ban,
+  Mail,
+  Play,
 } from "lucide-react";
 
 interface AppealWithPost extends Appeal {
   post?: Post | null;
+  userProfile?: Profile | null;
 }
 
 export default function AppealsPage() {
@@ -71,11 +76,17 @@ export default function AppealsPage() {
         getPendingAppealsCount(),
       ]);
 
-      // Fetch post info for each appeal
+      // Fetch post info and user profile for each appeal
       const appealsWithPosts = await Promise.all(
         result.appeals.map(async (appeal) => {
           const post = await getPostById(appeal.postId);
-          return { ...appeal, post };
+          // Fetch user profile - prefer post's userId, fallback to appeal's userId
+          let userProfile: Profile | null = null;
+          const userIdToFetch = post?.userId || appeal.userId;
+          if (userIdToFetch) {
+            userProfile = await getUserByUserId(userIdToFetch);
+          }
+          return { ...appeal, post, userProfile };
         })
       );
 
@@ -259,40 +270,57 @@ export default function AppealsPage() {
             >
               <CardContent className="pt-6">
                 <div className="flex gap-4">
-                  {/* Post thumbnail */}
-                  {appeal.post && appeal.post.media && appeal.post.media.length > 0 ? (
-                    <div
-                      className="w-24 h-24 rounded-lg overflow-hidden bg-secondary/30 flex-shrink-0 cursor-pointer"
-                      onClick={() => router.push(`/posts/${appeal.postId}`)}
-                    >
-                      {isVideoUrl(appeal.post.media[0]) ? (
-                        <div className="w-full h-full bg-black flex items-center justify-center text-white text-xs">
-                          Video
+                  {/* Post thumbnail - larger and with multiple media indicator */}
+                  <div
+                    className={`w-32 h-32 rounded-lg overflow-hidden flex-shrink-0 relative group ${
+                      appeal.post ? "bg-secondary/30 cursor-pointer" : "bg-red-500/10 border border-red-500/30"
+                    }`}
+                    onClick={() => appeal.post && router.push(`/posts/${appeal.postId}`)}
+                  >
+                    {appeal.post && appeal.post.media && appeal.post.media.length > 0 ? (
+                      <>
+                        {isVideoUrl(appeal.post.media[0]) ? (
+                          <div className="w-full h-full bg-black flex items-center justify-center text-white">
+                            <Play className="h-8 w-8" />
+                          </div>
+                        ) : (
+                          <img
+                            src={getImageUrl(appeal.post.media[0], 256, 256)}
+                            alt={appeal.post.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        )}
+                        {/* Media count badge */}
+                        {appeal.post.media.length > 1 && (
+                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            +{appeal.post.media.length - 1}
+                          </div>
+                        )}
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <ExternalLink className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                         </div>
-                      ) : (
-                        <img
-                          src={getImageUrl(appeal.post.media[0], 200, 200)}
-                          alt={appeal.post.title}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </div>
-                  ) : (
-                    <div
-                      className="w-24 h-24 rounded-lg bg-secondary/30 flex items-center justify-center flex-shrink-0 cursor-pointer"
-                      onClick={() => router.push(`/posts/${appeal.postId}`)}
-                    >
-                      <FileText className="h-8 w-8 text-muted-foreground/50" />
-                    </div>
-                  )}
+                      </>
+                    ) : appeal.post ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FileText className="h-10 w-10 text-muted-foreground/50" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-red-400">
+                        <Ban className="h-8 w-8 mb-1" />
+                        <span className="text-xs">Deleted</span>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Appeal content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 rounded text-xs ${getStatusColor(appeal.status)}`}>
-                            {appeal.status}
+                        {/* Status badges */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(appeal.status)}`}>
+                            {appeal.status.charAt(0).toUpperCase() + appeal.status.slice(1)}
                           </span>
                           {appeal.post?.isBlacklisted && (
                             <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-500 flex items-center gap-1">
@@ -301,21 +329,81 @@ export default function AppealsPage() {
                             </span>
                           )}
                         </div>
-                        <h3 className="font-medium truncate mb-1">
-                          {appeal.post?.title || "Unknown Post"}
+
+                        {/* Post title */}
+                        <h3 className="font-semibold text-lg truncate mb-2">
+                          {appeal.post?.title || (
+                            <span className="text-red-400">Post Deleted</span>
+                          )}
                         </h3>
-                        <div className="text-sm text-muted-foreground mb-2">
-                          <span className="flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Appeal Reason:
-                          </span>
-                          <p className="mt-1 text-foreground">{appeal.reason}</p>
+
+                        {/* Post ID when post is deleted */}
+                        {!appeal.post && (
+                          <p className="text-xs text-muted-foreground mb-2 font-mono">
+                            Post ID: {appeal.postId}
+                          </p>
+                        )}
+
+                        {/* Post description preview */}
+                        {appeal.post?.smallDescription && (
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                            {appeal.post.smallDescription}
+                          </p>
+                        )}
+
+                        {/* Author info */}
+                        <div className="flex items-center gap-3 mb-3 p-2 rounded-lg bg-secondary/30">
+                          <Avatar className="h-10 w-10 border border-border/50">
+                            {appeal.userProfile?.avatar ? (
+                              <AvatarImage src={appeal.userProfile.avatar} alt={appeal.userProfile.firstName} />
+                            ) : null}
+                            <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                              {appeal.userProfile ? (
+                                `${appeal.userProfile.firstName?.[0] || ""}${appeal.userProfile.lastName?.[0] || ""}`
+                              ) : (
+                                <User className="h-4 w-4" />
+                              )}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {appeal.userProfile 
+                                ? `${appeal.userProfile.firstName || ""} ${appeal.userProfile.lastName || ""}`.trim() || "Unknown Author"
+                                : "Unknown Author"}
+                            </p>
+                            {appeal.userProfile?.email && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                <Mail className="h-3 w-3 flex-shrink-0" />
+                                {appeal.userProfile.email}
+                              </p>
+                            )}
+                          </div>
+                          {appeal.userProfile && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/users/${appeal.post?.userId}`);
+                              }}
+                              className="text-xs"
+                            >
+                              View Profile
+                            </Button>
+                          )}
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {appeal.userId}
+
+                        {/* Appeal reason */}
+                        <div className="text-sm mb-3 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+                          <span className="flex items-center gap-1 text-yellow-600 font-medium mb-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Appeal Reason
                           </span>
+                          <p className="text-foreground">{appeal.reason}</p>
+                        </div>
+
+                        {/* Meta info */}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             {new Date(appeal.$createdAt).toLocaleString("en-US")}
@@ -324,15 +412,16 @@ export default function AppealsPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2 flex-shrink-0">
+                      <div className="flex flex-col gap-2 flex-shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/posts/${appeal.postId}`)}
-                          className="bg-secondary/50 border-border/50"
+                          onClick={() => appeal.post && router.push(`/posts/${appeal.postId}`)}
+                          disabled={!appeal.post}
+                          className={appeal.post ? "bg-secondary/50 border-border/50" : "opacity-50 cursor-not-allowed"}
                         >
                           <ExternalLink className="h-4 w-4 mr-1" />
-                          View Post
+                          {appeal.post ? "View Post" : "Post Deleted"}
                         </Button>
                         {appeal.status === "pending" && (
                           <>

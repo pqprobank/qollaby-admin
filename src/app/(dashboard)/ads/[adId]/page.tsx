@@ -50,6 +50,8 @@ import {
   RefreshCw,
   XCircle,
   Megaphone,
+  ExternalLink,
+  TrendingUp,
 } from "lucide-react";
 
 export default function AdDetailPage() {
@@ -321,6 +323,20 @@ export default function AdDetailPage() {
                   <p className="text-sm whitespace-pre-wrap">{ad.description}</p>
                 </div>
               )}
+              {ad.externalLink && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">External Link</p>
+                  <a
+                    href={ad.externalLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    {ad.externalLink}
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -333,6 +349,7 @@ export default function AdDetailPage() {
               <StatRow icon={Eye} label="Views" value={ad.views || 0} color="text-blue-500" />
               <StatRow icon={MousePointer} label="Clicks" value={ad.clicks || 0} color="text-green-500" />
               <StatRow icon={Heart} label="Likes" value={likeCount} color="text-pink-500" />
+              <ConversionRow views={ad.views || 0} clicks={ad.clicks || 0} />
             </CardContent>
           </Card>
 
@@ -435,6 +452,26 @@ function InfoRow({ icon: Icon, label, value, mono }: InfoRowProps) {
         <span>{label}</span>
       </div>
       <span className={mono ? "font-mono text-sm" : ""}>{value}</span>
+    </div>
+  );
+}
+
+interface ConversionRowProps {
+  views: number;
+  clicks: number;
+}
+
+function ConversionRow({ views, clicks }: ConversionRowProps) {
+  const rate = views > 0 ? (clicks / views) * 100 : 0;
+  const formattedRate = rate.toFixed(2);
+
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-border/30 last:border-0">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <TrendingUp className="h-4 w-4 text-orange-500" />
+        <span>Conversion Rate</span>
+      </div>
+      <span className="text-lg font-semibold text-orange-500">{formattedRate}%</span>
     </div>
   );
 }

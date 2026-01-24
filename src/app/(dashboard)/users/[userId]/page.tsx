@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getUserById, updateUserRole, deleteUserProfile, getUserSubscriptionInfo, getUserContentStats, getUserBusinessProfile, ParsedBusinessProfile } from "@/lib/user-actions";
+import { getUserById, updateUserRole, deleteUserProfile, getUserSubscriptionInfo, getUserContentStats } from "@/lib/user-actions";
 import { Profile, UserRole, UserSubscriptionInfo, UserContentStats } from "@/types/profile.types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,9 +37,6 @@ import {
   CreditCard,
   FileText,
   Megaphone,
-  MapPin,
-  Tag,
-  Building2,
 } from "lucide-react";
 
 export default function UserDetailPage() {
@@ -51,7 +48,6 @@ export default function UserDetailPage() {
   const [user, setUser] = useState<Profile | null>(null);
   const [subscriptionInfo, setSubscriptionInfo] = useState<UserSubscriptionInfo | null>(null);
   const [contentStats, setContentStats] = useState<UserContentStats | null>(null);
-  const [businessProfile, setBusinessProfile] = useState<ParsedBusinessProfile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
 
@@ -61,16 +57,14 @@ export default function UserDetailPage() {
       const userData = await getUserById(userId);
       setUser(userData);
       
-      // Fetch subscription info, content stats, and business profile in parallel
+      // Fetch subscription info and content stats in parallel
       if (userData) {
-        const [subInfo, stats, bizProfile] = await Promise.all([
+        const [subInfo, stats] = await Promise.all([
           getUserSubscriptionInfo(userData.userId),
           getUserContentStats(userData.userId),
-          userData.hasBusinessProfile ? getUserBusinessProfile(userData.userId, userData) : Promise.resolve(null),
         ]);
         setSubscriptionInfo(subInfo);
         setContentStats(stats);
-        setBusinessProfile(bizProfile);
       }
     } catch (error) {
       console.error("Failed to fetch user:", error);
@@ -249,9 +243,6 @@ export default function UserDetailPage() {
           <Tabs defaultValue="info" className="w-full">
             <TabsList className="bg-secondary/50 border border-border/50 mb-4">
               <TabsTrigger value="info">Basic Info</TabsTrigger>
-              {user.hasBusinessProfile && (
-                <TabsTrigger value="business">Business Profile</TabsTrigger>
-              )}
               <TabsTrigger value="meta">Metadata</TabsTrigger>
             </TabsList>
 
@@ -301,67 +292,6 @@ export default function UserDetailPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-
-            {/* Business Profile Tab */}
-            {user.hasBusinessProfile && (
-              <TabsContent value="business">
-                <Card className="bg-card/50 border-border/50">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Building2 className="h-5 w-5 text-accent" />
-                      Business Profile
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {businessProfile ? (
-                      <>
-                        <InfoRow
-                          icon={Hash}
-                          label="ID"
-                          value={businessProfile.userId}
-                          mono
-                        />
-                        <InfoRow
-                          icon={User}
-                          label="Owner Name"
-                          value={businessProfile.ownerName}
-                        />
-                        <InfoRow
-                          icon={Mail}
-                          label="Owner Email"
-                          value={businessProfile.ownerEmail}
-                        />
-                        <InfoRow
-                          icon={MapPin}
-                          label="State"
-                          value={businessProfile.state}
-                        />
-                        <InfoRow
-                          icon={MapPin}
-                          label="City"
-                          value={businessProfile.city}
-                        />
-                        <InfoRow
-                          icon={Tag}
-                          label="Category"
-                          value={businessProfile.category}
-                        />
-                        <InfoRow
-                          icon={Tag}
-                          label="Subcategory"
-                          value={businessProfile.subcategory}
-                        />
-                      </>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Loading business profile...</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
 
             <TabsContent value="meta">
               <Card className="bg-card/50 border-border/50">

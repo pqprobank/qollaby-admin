@@ -7,6 +7,10 @@ export interface UserListParams {
   search?: string;
   role?: UserRole | "all";
   planId?: string | "all" | "none"; // "none" = no subscription
+  hasBusinessProfile?: "all" | "yes" | "no";
+  state?: string;
+  city?: string;
+  category?: string;
 }
 
 export interface UserListResult {
@@ -20,17 +24,26 @@ export interface UserListResult {
  * Get paginated list of users with optional search, role, and subscription filter
  */
 export async function getUsers(params: UserListParams = {}): Promise<UserListResult> {
-  const { page = 1, limit = 10, search, role = "all", planId = "all" } = params;
+  const { 
+    page = 1, 
+    limit = 10, 
+    search, 
+    role = "all", 
+    planId = "all",
+    hasBusinessProfile = "all",
+    state,
+    city,
+    category,
+  } = params;
   const offset = (page - 1) * limit;
 
   try {
-    // If filtering by subscription, we need to get user IDs first
-    let subscriptionUserIds: string[] | null = null;
-    let noSubscriptionUserIds: string[] | null = null;
+    // Collect user IDs from various filters
+    let filteredUserIds: Set<string> | null = null;
 
+    // Filter by subscription
     if (planId !== "all") {
       if (planId === "none") {
-        // Get all users with subscriptions
         const allSubsRes = await databases.listDocuments(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
           Collections.SUBSCRIPTIONS,
@@ -38,23 +51,74 @@ export async function getUsers(params: UserListParams = {}): Promise<UserListRes
         );
         const usersWithSubs = new Set(allSubsRes.documents.map((d) => d.userId as string));
         
-        // Get all users to find ones without subscriptions
         const allUsersRes = await databases.listDocuments(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
           Collections.PROFILE,
           [Query.limit(1000)]
         );
-        noSubscriptionUserIds = allUsersRes.documents
-          .filter((u) => !usersWithSubs.has(u.userId as string))
-          .map((u) => u.userId as string);
+        const noSubUserIds = new Set(
+          allUsersRes.documents
+            .filter((u) => !usersWithSubs.has(u.userId as string))
+            .map((u) => u.userId as string)
+        );
+        filteredUserIds = filteredUserIds 
+          ? new Set([...filteredUserIds].filter(id => noSubUserIds.has(id)))
+          : noSubUserIds;
       } else {
-        // Get users with specific plan subscription
         const subsRes = await databases.listDocuments(
           process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
           Collections.SUBSCRIPTIONS,
           [Query.equal("planId", planId), Query.limit(1000)]
         );
-        subscriptionUserIds = [...new Set(subsRes.documents.map((d) => d.userId as string))];
+        const subUserIds = new Set(subsRes.documents.map((d) => d.userId as string));
+        filteredUserIds = filteredUserIds
+          ? new Set([...filteredUserIds].filter(id => subUserIds.has(id)))
+          : subUserIds;
+      }
+    }
+
+    // Filter by business profile fields (state, city, category) or hasBusinessProfile
+    const needsBusinessProfileFilter = hasBusinessProfile !== "all" || state || city || category;
+    
+    if (needsBusinessProfileFilter) {
+      const bpQueries: string[] = [Query.limit(1000)];
+      if (state) bpQueries.push(Query.contains("locationAddress", state));
+      if (city) bpQueries.push(Query.contains("locationAddress", city));
+      if (category) bpQueries.push(Query.equal("category", category));
+
+      const bpRes = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+        Collections.BUSINESS_PROFILE,
+        bpQueries
+      );
+      const bpUserIds = new Set(bpRes.documents.map((d) => d.userId as string));
+
+      if (hasBusinessProfile === "yes" || state || city || category) {
+        // Only users with matching business profile
+        filteredUserIds = filteredUserIds
+          ? new Set([...filteredUserIds].filter(id => bpUserIds.has(id)))
+          : bpUserIds;
+      } else if (hasBusinessProfile === "no") {
+        // Only users without business profile
+        const allUsersRes = await databases.listDocuments(
+          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+          Collections.PROFILE,
+          [Query.limit(1000)]
+        );
+        const allBpRes = await databases.listDocuments(
+          process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+          Collections.BUSINESS_PROFILE,
+          [Query.limit(1000)]
+        );
+        const allBpUserIds = new Set(allBpRes.documents.map((d) => d.userId as string));
+        const noBpUserIds = new Set(
+          allUsersRes.documents
+            .filter((u) => !allBpUserIds.has(u.userId as string))
+            .map((u) => u.userId as string)
+        );
+        filteredUserIds = filteredUserIds
+          ? new Set([...filteredUserIds].filter(id => noBpUserIds.has(id)))
+          : noBpUserIds;
       }
     }
 
@@ -78,23 +142,14 @@ export async function getUsers(params: UserListParams = {}): Promise<UserListRes
       countQueries.push(Query.contains("firstName", search.trim()));
     }
 
-    // Add subscription filter
-    if (subscriptionUserIds !== null) {
-      if (subscriptionUserIds.length === 0) {
-        // No users match this subscription filter
+    // Add filtered user IDs
+    if (filteredUserIds !== null) {
+      if (filteredUserIds.size === 0) {
         return { users: [], total: 0, page, totalPages: 0 };
       }
-      queries.push(Query.equal("userId", subscriptionUserIds));
-      countQueries.push(Query.equal("userId", subscriptionUserIds));
-    }
-
-    if (noSubscriptionUserIds !== null) {
-      if (noSubscriptionUserIds.length === 0) {
-        // All users have subscriptions
-        return { users: [], total: 0, page, totalPages: 0 };
-      }
-      queries.push(Query.equal("userId", noSubscriptionUserIds));
-      countQueries.push(Query.equal("userId", noSubscriptionUserIds));
+      const userIdsArray = [...filteredUserIds];
+      queries.push(Query.equal("userId", userIdsArray));
+      countQueries.push(Query.equal("userId", userIdsArray));
     }
 
     const [usersRes, totalRes] = await Promise.all([
@@ -119,6 +174,58 @@ export async function getUsers(params: UserListParams = {}): Promise<UserListRes
   } catch (error) {
     console.error("Error fetching users:", error);
     throw error;
+  }
+}
+
+/**
+ * Filter options for users list
+ */
+export interface UserFilterOptions {
+  states: string[];
+  cities: string[];
+  categories: string[];
+}
+
+/**
+ * Get available filter options from business profiles
+ */
+export async function getUserFilterOptions(): Promise<UserFilterOptions> {
+  try {
+    const res = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.BUSINESS_PROFILE,
+      [Query.limit(1000)]
+    );
+
+    const states = new Set<string>();
+    const cities = new Set<string>();
+    const categories = new Set<string>();
+
+    for (const doc of res.documents) {
+      const bp = doc as unknown as BusinessProfile;
+      
+      // Parse location address for state and city
+      if (bp.locationAddress) {
+        const parts = bp.locationAddress.split(",").map((p) => p.trim());
+        if (parts.length >= 3) {
+          const state = parts[parts.length - 2];
+          const city = parts[parts.length - 3];
+          if (state && state !== "USA") states.add(state);
+          if (city) cities.add(city);
+        }
+      }
+      
+      if (bp.category) categories.add(bp.category);
+    }
+
+    return {
+      states: [...states].sort(),
+      cities: [...cities].sort(),
+      categories: [...categories].sort(),
+    };
+  } catch (error) {
+    console.error("Error fetching filter options:", error);
+    return { states: [], cities: [], categories: [] };
   }
 }
 
@@ -242,6 +349,70 @@ export async function getUserBusinessProfile(
   } catch (error) {
     console.error("Error fetching business profile:", error);
     return null;
+  }
+}
+
+/**
+ * Business Profile data for list display
+ */
+export interface BusinessProfileListItem {
+  odooId: string;
+  ownerName: string;
+  ownerEmail: string;
+  userId: string;
+  state: string;
+  city: string;
+  category: string;
+  subcategory: string;
+}
+
+/**
+ * Get business profiles for multiple users (batch)
+ */
+export async function getUsersBusinessProfiles(
+  users: Profile[]
+): Promise<Map<string, BusinessProfileListItem>> {
+  const result = new Map<string, BusinessProfileListItem>();
+
+  if (users.length === 0) {
+    return result;
+  }
+
+  // Create a map of userId -> user profile for quick lookup
+  const userMap = new Map<string, Profile>();
+  users.forEach((u) => userMap.set(u.userId, u));
+
+  const userIds = users.map((u) => u.userId);
+
+  try {
+    // Fetch business profiles for all users
+    const res = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.BUSINESS_PROFILE,
+      [Query.equal("userId", userIds), Query.limit(1000)]
+    );
+
+    for (const doc of res.documents) {
+      const bp = doc as unknown as BusinessProfile;
+      const { city, state } = parseLocationAddress(bp.locationAddress);
+      const user = userMap.get(bp.userId);
+
+      result.set(bp.userId, {
+        odooId: bp.$id,
+        ownerName: user ? `${user.firstName} ${user.lastName}`.trim() : "N/A",
+        ownerEmail: user?.email || "N/A",
+        userId: bp.userId,
+        state,
+        city,
+        category: bp.category || "N/A",
+        subcategory: bp.subCategory || "N/A",
+      });
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error fetching business profiles:", error);
+    return result;
   }
 }
 
@@ -568,6 +739,8 @@ export interface Post {
   userLocationAddress?: string;
   // Event date (optional)
   eventDate?: string | null;
+  // External link (optional)
+  externalLink?: string;
   // Blacklist status (admin moderation)
   isBlacklisted?: boolean;
 }
@@ -1205,6 +1378,8 @@ export interface SponsorAd {
   views: number;
   clicks: number;
   expiresAt: string;
+  // External link (optional)
+  externalLink?: string;
   // Blacklist status (admin moderation)
   isBlacklisted?: boolean;
   slot?: number;
@@ -1327,6 +1502,125 @@ export async function getSponsorAdStats(): Promise<{
   } catch (error) {
     console.error("Error fetching sponsor ad stats:", error);
     return { totalAds: 0, activeAds: 0, pendingAds: 0 };
+  }
+}
+
+/**
+ * Conversion rate item for a dimension group
+ */
+export interface ConversionRateItem {
+  name: string;
+  totalViews: number;
+  totalClicks: number;
+  adCount: number;
+  conversionRate: number;
+}
+
+/**
+ * Conversion rate data by dimension
+ */
+export interface ConversionRateData {
+  byCategory: ConversionRateItem[];
+  bySubcategory: ConversionRateItem[];
+  byState: ConversionRateItem[];
+  byCity: ConversionRateItem[];
+}
+
+/**
+ * Get conversion rate data grouped by category, subcategory, state, and city
+ */
+export async function getConversionRateData(): Promise<ConversionRateData> {
+  try {
+    // Fetch all sponsor ads (with active status for meaningful data)
+    const res = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      [Query.limit(5000)]
+    );
+
+    const ads = res.documents as unknown as SponsorAd[];
+
+    // Group by category
+    const categoryMap = new Map<string, { views: number; clicks: number; count: number }>();
+    // Group by subcategory
+    const subcategoryMap = new Map<string, { views: number; clicks: number; count: number }>();
+    // Group by state
+    const stateMap = new Map<string, { views: number; clicks: number; count: number }>();
+    // Group by city
+    const cityMap = new Map<string, { views: number; clicks: number; count: number }>();
+
+    for (const ad of ads) {
+      const views = ad.views || 0;
+      const clicks = ad.clicks || 0;
+
+      // Category
+      if (ad.category) {
+        const existing = categoryMap.get(ad.category) || { views: 0, clicks: 0, count: 0 };
+        categoryMap.set(ad.category, {
+          views: existing.views + views,
+          clicks: existing.clicks + clicks,
+          count: existing.count + 1,
+        });
+      }
+
+      // Subcategory
+      if (ad.subcategory) {
+        const existing = subcategoryMap.get(ad.subcategory) || { views: 0, clicks: 0, count: 0 };
+        subcategoryMap.set(ad.subcategory, {
+          views: existing.views + views,
+          clicks: existing.clicks + clicks,
+          count: existing.count + 1,
+        });
+      }
+
+      // State
+      if (ad.state) {
+        const existing = stateMap.get(ad.state) || { views: 0, clicks: 0, count: 0 };
+        stateMap.set(ad.state, {
+          views: existing.views + views,
+          clicks: existing.clicks + clicks,
+          count: existing.count + 1,
+        });
+      }
+
+      // City
+      if (ad.city) {
+        const existing = cityMap.get(ad.city) || { views: 0, clicks: 0, count: 0 };
+        cityMap.set(ad.city, {
+          views: existing.views + views,
+          clicks: existing.clicks + clicks,
+          count: existing.count + 1,
+        });
+      }
+    }
+
+    // Convert maps to sorted arrays
+    const mapToArray = (map: Map<string, { views: number; clicks: number; count: number }>): ConversionRateItem[] => {
+      return Array.from(map.entries())
+        .map(([name, data]) => ({
+          name,
+          totalViews: data.views,
+          totalClicks: data.clicks,
+          adCount: data.count,
+          conversionRate: data.views > 0 ? (data.clicks / data.views) * 100 : 0,
+        }))
+        .sort((a, b) => b.conversionRate - a.conversionRate);
+    };
+
+    return {
+      byCategory: mapToArray(categoryMap),
+      bySubcategory: mapToArray(subcategoryMap),
+      byState: mapToArray(stateMap),
+      byCity: mapToArray(cityMap),
+    };
+  } catch (error) {
+    console.error("Error fetching conversion rate data:", error);
+    return {
+      byCategory: [],
+      bySubcategory: [],
+      byState: [],
+      byCity: [],
+    };
   }
 }
 
