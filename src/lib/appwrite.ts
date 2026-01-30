@@ -1,4 +1,4 @@
-import { Account, Client, Databases, Query, Storage } from "appwrite";
+import { Account, Client, Databases, ID, Query, Storage } from "appwrite";
 
 // Appwrite configuration - shared with mobile app
 const client = new Client()
@@ -11,6 +11,38 @@ export const storage = new Storage(client);
 
 // Bucket ID for post images (adjust if different)
 export const BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_ID || "posts";
+
+// Sponsor Ads Bucket ID (same as app)
+export const SPONSOR_ADS_BUCKET_ID = "68be1b43002b9e939b2e";
+
+/**
+ * Upload a file to Appwrite Storage for sponsor ads
+ * Returns full URL compatible with app format
+ * @param file - The file to upload
+ * @returns The full access URL
+ */
+export async function uploadFile(file: File): Promise<string> {
+  const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!;
+  const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!;
+  
+  const uploaded = await storage.createFile(SPONSOR_ADS_BUCKET_ID, ID.unique(), file);
+  
+  // Generate access URL (same format as app)
+  const isVideo = file.type.startsWith("video/");
+  const baseUrl = `${endpoint}/storage/buckets/${SPONSOR_ADS_BUCKET_ID}/files/${uploaded.$id}/view?project=${projectId}`;
+  
+  return isVideo ? `${baseUrl}&type=video` : baseUrl;
+}
+
+/**
+ * Upload multiple files to Appwrite Storage
+ * @param files - Array of files to upload
+ * @returns Array of file URLs
+ */
+export async function uploadFiles(files: File[]): Promise<string[]> {
+  const uploadPromises = files.map((file) => uploadFile(file));
+  return Promise.all(uploadPromises);
+}
 
 /**
  * Check if the URL represents a video file
@@ -107,6 +139,7 @@ export const Collections = {
   PUSH_TOKENS: "push_tokens",
   CATEGORIES: "category",
   LOCATIONS: "locations",
+  EXCHANGE_LISTINGS: "exchange_listings",
 } as const;
 
 export { Query };

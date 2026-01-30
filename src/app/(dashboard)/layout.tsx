@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
+import { GoogleMapsProvider } from "@/components/ui/location-picker";
 import {
   Loader2,
   Shield,
@@ -16,11 +17,13 @@ import {
   MessageSquare,
   Megaphone,
   FolderTree,
-  MapPin,
   TrendingUp,
   CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Google Maps API Key - set in environment variable
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -31,7 +34,6 @@ const navItems = [
   { href: "/conversions", label: "Conversions", icon: TrendingUp },
   { href: "/appeals", label: "Appeals", icon: MessageSquare },
   { href: "/categories", label: "Categories", icon: FolderTree },
-  { href: "/locations", label: "Locations", icon: MapPin },
 ];
 
 export default function DashboardLayout({
@@ -86,6 +88,7 @@ export default function DashboardLayout({
   }
 
   return (
+    <GoogleMapsProvider apiKey={GOOGLE_MAPS_API_KEY}>
     <div className="min-h-screen bg-background">
       {/* Fixed Header */}
       <header className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border/50 bg-card/95 backdrop-blur-xl">
@@ -192,5 +195,6 @@ export default function DashboardLayout({
         <div className="p-6">{children}</div>
       </main>
     </div>
+    </GoogleMapsProvider>
   );
 }

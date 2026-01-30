@@ -4,20 +4,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
 import {
   getPosts,
+  getExchangeListings,
   getPostsLikeCounts,
   getPostsReportCounts,
   getPostsStampCounts,
   getPostStats,
   Post,
+  ExchangeListing,
   PostListResult,
+  ExchangeListingListResult,
 } from "@/lib/user-actions";
+import { getStates, getLocationsByState, Location } from "@/lib/location-actions";
+import { categories } from "@/lib/categories";
 import {
   AlertTriangle,
   Ban,
   Calendar,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -26,14 +33,38 @@ import {
   MessageCircle,
   Play,
   RefreshCw,
+  Repeat,
   Search,
   TrendingUp,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// US State abbreviation to full name mapping
+const US_STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
+const getStateFullName = (stateCode: string): string => {
+  return US_STATE_NAMES[stateCode.toUpperCase()] || stateCode;
+};
+
+// Combined type for Post and ExchangeListing display
+type PostOrExchange = Post | ExchangeListing;
+
 // Extended post type with computed stats
-interface PostWithStats extends Post {
+interface ItemWithStats extends PostOrExchange {
   computedLikeCount: number;
   computedReportCount: number;
   computedStampCount: number;
@@ -42,49 +73,100 @@ interface PostWithStats extends Post {
 export default function PostsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState<PostWithStats[]>([]);
+  const [items, setItems] = useState<ItemWithStats[]>([]);
   const [stats, setStats] = useState({ totalPosts: 0, recentPosts: 0 });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "post" | "event">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "post" | "event" | "exchange">("all");
+  
+  // Location filters
+  const [states, setStates] = useState<string[]>([]);
+  const [cities, setCities] = useState<Location[]>([]);
+  const [stateFilter, setStateFilter] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [loadingCities, setLoadingCities] = useState(false);
+  
+  // Location picker
+  const [selectedLocation, setSelectedLocation] = useState<PlaceValue | null>(null);
+  
+  // Category filters
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [subcategoryFilter, setSubcategoryFilter] = useState("");
+  
+  // Show filters panel
+  const [showFilters, setShowFilters] = useState(false);
 
-  const fetchPosts = useCallback(async () => {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const result: PostListResult = await getPosts({
-        page,
-        limit: 20,
-        search: search || undefined,
-        type: typeFilter,
-      });
+      let itemsData: PostOrExchange[] = [];
+      let totalCount = 0;
+      let totalPagesCount = 1;
 
-      // Fetch like, report, and stamp counts for all posts
-      const postIds = result.posts.map((p) => p.$id);
-      const [likeCounts, reportCounts, stampCounts] = await Promise.all([
-        getPostsLikeCounts(postIds),
-        getPostsReportCounts(postIds),
-        getPostsStampCounts(postIds),
-      ]);
+      if (typeFilter === "exchange") {
+        // Fetch from exchange_listings table
+        const result: ExchangeListingListResult = await getExchangeListings({
+          page,
+          limit: 20,
+          search: search || undefined,
+          state: stateFilter || undefined,
+          city: cityFilter || undefined,
+          category: categoryFilter || undefined,
+          subcategory: subcategoryFilter || undefined,
+        });
+        itemsData = result.listings;
+        totalCount = result.total;
+        totalPagesCount = result.totalPages;
+      } else {
+        // Fetch from posts table (post/event types)
+        const result: PostListResult = await getPosts({
+          page,
+          limit: 20,
+          search: search || undefined,
+          type: typeFilter,
+          state: stateFilter || undefined,
+          city: cityFilter || undefined,
+          category: categoryFilter || undefined,
+          subcategory: subcategoryFilter || undefined,
+        });
+        itemsData = result.posts;
+        totalCount = result.total;
+        totalPagesCount = result.totalPages;
+      }
 
-      // Merge stats into posts
-      const postsWithStats: PostWithStats[] = result.posts.map((post) => ({
-        ...post,
-        computedLikeCount: likeCounts.get(post.$id) || 0,
-        computedReportCount: reportCounts.get(post.$id) || 0,
-        computedStampCount: stampCounts.get(post.$id) || 0,
+      // Fetch like, report, and stamp counts for all items (only for posts, not exchange)
+      const itemIds = itemsData.map((p) => p.$id);
+      let likeCounts = new Map<string, number>();
+      let reportCounts = new Map<string, number>();
+      let stampCounts = new Map<string, number>();
+
+      if (typeFilter !== "exchange" && itemIds.length > 0) {
+        [likeCounts, reportCounts, stampCounts] = await Promise.all([
+          getPostsLikeCounts(itemIds),
+          getPostsReportCounts(itemIds),
+          getPostsStampCounts(itemIds),
+        ]);
+      }
+
+      // Merge stats into items
+      const itemsWithStats: ItemWithStats[] = itemsData.map((item) => ({
+        ...item,
+        computedLikeCount: likeCounts.get(item.$id) || 0,
+        computedReportCount: reportCounts.get(item.$id) || 0,
+        computedStampCount: stampCounts.get(item.$id) || 0,
       }));
 
-      setPosts(postsWithStats);
-      setTotalPages(result.totalPages);
-      setTotal(result.total);
+      setItems(itemsWithStats);
+      setTotalPages(totalPagesCount);
+      setTotal(totalCount);
     } catch (error) {
-      console.error("Failed to fetch posts:", error);
+      console.error("Failed to fetch items:", error);
     } finally {
       setLoading(false);
     }
-  }, [page, search, typeFilter]);
+  }, [page, search, typeFilter, stateFilter, cityFilter, categoryFilter, subcategoryFilter]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -96,10 +178,10 @@ export default function PostsPage() {
   }, []);
 
   useEffect(() => {
-    fetchPosts();
+    fetchItems();
     // Scroll to top when page changes
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [fetchPosts]);
+  }, [fetchItems]);
 
   useEffect(() => {
     fetchStats();
@@ -107,11 +189,65 @@ export default function PostsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, typeFilter]);
+  }, [search, typeFilter, stateFilter, cityFilter, categoryFilter, subcategoryFilter]);
+
+  // Load states on mount
+  useEffect(() => {
+    getStates().then(setStates);
+  }, []);
+
+  // Load cities when state changes
+  useEffect(() => {
+    if (stateFilter) {
+      setLoadingCities(true);
+      getLocationsByState(stateFilter)
+        .then(setCities)
+        .finally(() => setLoadingCities(false));
+      setCityFilter(""); // Reset city when state changes
+    } else {
+      setCities([]);
+      setCityFilter("");
+    }
+  }, [stateFilter]);
+
+  // Reset subcategory when category changes
+  useEffect(() => {
+    setSubcategoryFilter("");
+  }, [categoryFilter]);
+
+  // Get subcategories for selected category
+  const selectedCategory = categories.find((c) => c.value === categoryFilter);
+  const subcategories = selectedCategory?.subCategories || [];
+
+  // Count active filters
+  const activeFilterCount = [stateFilter, cityFilter, categoryFilter, subcategoryFilter].filter(Boolean).length;
+
+  // Clear all filters
+  const clearFilters = () => {
+    setStateFilter("");
+    setCityFilter("");
+    setCategoryFilter("");
+    setSubcategoryFilter("");
+    setSelectedLocation(null);
+  };
+
+  // Handle location change - auto apply filter
+  const handleLocationChange = (location: PlaceValue | null) => {
+    setSelectedLocation(location);
+    if (location?.state) {
+      // Use state abbreviation directly (e.g., "CA") for filtering
+      // because the database stores abbreviations
+      setStateFilter(location.state);
+      setCityFilter(location.city || "");
+    } else {
+      setStateFilter("");
+      setCityFilter("");
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchPosts();
+    fetchItems();
   };
 
   return (
@@ -126,7 +262,7 @@ export default function PostsPage() {
           variant="outline"
           size="sm"
           onClick={() => {
-            fetchPosts();
+            fetchItems();
             fetchStats();
           }}
           className="w-fit"
@@ -164,22 +300,22 @@ export default function PostsPage() {
 
       {/* Search and Filters */}
       <Card className="bg-card/50 border-border/50">
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
             <form onSubmit={handleSearch} className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
                   placeholder="Search posts by title..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 bg-input/50 border-border/50"
-              />
-            </div>
-          </form>
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 bg-input/50 border-border/50"
+                />
+              </div>
+            </form>
             {/* Type filter */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant={typeFilter === "all" ? "default" : "outline"}
                 size="sm"
@@ -207,8 +343,97 @@ export default function PostsPage() {
                 <Calendar className="h-4 w-4 mr-1" />
                 Events
               </Button>
+              <Button
+                variant={typeFilter === "exchange" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTypeFilter("exchange")}
+                className={typeFilter === "exchange" ? "bg-primary" : "bg-secondary/50 border-border/50"}
+              >
+                <Repeat className="h-4 w-4 mr-1" />
+                Exchange
+              </Button>
+              {/* Filter toggle button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className={`bg-secondary/50 border-border/50 ${activeFilterCount > 0 ? "border-primary text-primary" : ""}`}
+              >
+                <ChevronDown className={`h-4 w-4 mr-1 transition-transform ${showFilters ? "rotate-180" : ""}`} />
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </Button>
             </div>
           </div>
+
+          {/* Expandable filters panel */}
+          {showFilters && (
+            <div className="pt-4 border-t border-border/30 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Location filter - inline picker */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-medium text-muted-foreground">Location (State required)</label>
+                  <LocationPicker
+                    value={selectedLocation}
+                    onChange={handleLocationChange}
+                    placeholder="Search city or address..."
+                    countryRestriction="us"
+                    showCurrentLocation={false}
+                  />
+                </div>
+
+                {/* Category filter */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Category</label>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="w-full h-9 px-3 rounded-md border border-border/50 bg-input/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subcategory filter */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Subcategory</label>
+                  <select
+                    value={subcategoryFilter}
+                    onChange={(e) => setSubcategoryFilter(e.target.value)}
+                    disabled={!categoryFilter}
+                    className="w-full h-9 px-3 rounded-md border border-border/50 bg-input/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">All Subcategories</option>
+                    {subcategories.map((sub) => (
+                      <option key={sub.value} value={sub.value}>{sub.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Clear filters button */}
+              {activeFilterCount > 0 && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear Filters
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -224,18 +449,18 @@ export default function PostsPage() {
                 </div>
               ))}
             </div>
-          ) : posts.length === 0 ? (
+          ) : items.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No posts found</p>
+              <p>No {typeFilter === "exchange" ? "exchange listings" : "posts"} found</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {posts.map((post) => (
+              {items.map((item) => (
                 <PostCard
-                  key={post.$id}
-                  post={post}
-                  onClick={() => router.push(`/posts/${post.$id}`)}
+                  key={item.$id}
+                  post={item}
+                  onClick={() => router.push(typeFilter === "exchange" ? `/posts/${item.$id}?type=exchange` : `/posts/${item.$id}`)}
                 />
               ))}
             </div>
@@ -271,12 +496,13 @@ export default function PostsPage() {
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }
 
 interface PostCardProps {
-  post: PostWithStats;
+  post: ItemWithStats;
   onClick: () => void;
 }
 
@@ -373,6 +599,13 @@ function PostCard({ post, onClick }: PostCardProps) {
             <div className="px-2 py-1 rounded bg-orange-500/90 text-white text-xs font-medium flex items-center gap-1">
               <Calendar className="w-3 h-3" />
               Event
+            </div>
+          )}
+          {/* Exchange badge */}
+          {post.type === "exchange" && !isVideo && (
+            <div className="px-2 py-1 rounded bg-purple-500/90 text-white text-xs font-medium flex items-center gap-1">
+              <Repeat className="w-3 h-3" />
+              Exchange
             </div>
           )}
         </div>

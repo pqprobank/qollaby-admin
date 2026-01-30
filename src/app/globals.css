@@ -119,3 +119,86 @@
 .animate-pulse-glow {
   animation: pulse-glow 3s ease-in-out infinite;
 }
+
+/* Google Places Autocomplete styling - ensure it appears above dialogs */
+.pac-container {
+  z-index: 10000 !important;
+  background-color: oklch(0.16 0.015 240);
+  border: 1px solid oklch(0.28 0.02 240);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+  margin-top: 4px;
+  font-family: inherit;
+  padding: 4px 0;
+  pointer-events: auto !important;
+  position: fixed !important;
+}
+
+/* Ensure pac-container and its children receive pointer events */
+.pac-container * {
+  pointer-events: auto !important;
+}
+
+.pac-item {
+  padding: 10px 14px;
+  cursor: pointer !important;
+  border-top: 1px solid oklch(0.28 0.02 240 / 0.5);
+  color: oklch(0.95 0.01 240);
+  font-size: 14px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  pointer-events: auto !important;
+}
+
+/* When pac-container is visible, make dialog overlay not block it */
+body:has(.pac-container:not([style*="display: none"])) [data-slot="dialog-overlay"] {
+  pointer-events: none;
+}
+
+body:has(.pac-container:not([style*="display: none"])) [data-slot="dialog-content"] {
+  pointer-events: auto;
+}
+
+.pac-item:first-child {
+  border-top: none;
+}
+
+.pac-item:hover {
+  background-color: oklch(0.22 0.02 240);
+}
+
+.pac-item-selected,
+.pac-item-selected:hover {
+  background-color: oklch(0.72 0.16 175 / 0.15);
+}
+
+.pac-icon {
+  margin-right: 10px;
+  width: 20px;
+  height: 20px;
+  background-size: contain;
+}
+
+.pac-icon-marker {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E");
+}
+
+.pac-item-query {
+  font-size: 14px;
+  color: oklch(0.95 0.01 240);
+  padding-right: 4px;
+}
+
+.pac-matched {
+  font-weight: 600;
+  color: oklch(0.72 0.16 175);
+}
+
+.pac-logo::after {
+  display: none;
+}
+
+.hdpi.pac-logo::after {
+  display: none;
+}

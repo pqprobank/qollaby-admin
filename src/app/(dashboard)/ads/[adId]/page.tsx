@@ -52,6 +52,7 @@ import {
   Megaphone,
   ExternalLink,
   TrendingUp,
+  Shield,
 } from "lucide-react";
 
 export default function AdDetailPage() {
@@ -111,6 +112,14 @@ export default function AdDetailPage() {
       setBlacklistDialog(false);
     }
   };
+
+  // Convert stored slot to display slot (stored = display - 1)
+  const getDisplaySlot = (storedSlot: number | undefined): number | undefined => {
+    if (storedSlot === undefined || storedSlot === null) return undefined;
+    return storedSlot + 1;
+  };
+  
+  const displaySlot = ad ? getDisplaySlot(ad.slot) : undefined;
 
   if (loading) {
     return (
@@ -298,18 +307,27 @@ export default function AdDetailPage() {
                   </p>
                 </div>
               </div>
+              {/* Admin Badge */}
+              {ad.isAdminCreated && (
+                <div className="flex items-center gap-2 pb-3 border-b border-border/30">
+                  <div className="px-2.5 py-1 rounded-md bg-green-600/20 text-green-500 text-xs font-medium flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5" />
+                    Admin Created Ad
+                  </div>
+                </div>
+              )}
               {/* Slot Position */}
-              {ad.slot !== undefined && (
+              {displaySlot !== undefined && (
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">Slot Position</p>
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium ${
-                      ad.slot === 0 || ad.slot === 9 || ad.slot === 19
+                      displaySlot === 1 || displaySlot === 10 || displaySlot === 20
                         ? "bg-red-500/10 text-red-500 border border-red-500/30"
                         : "bg-amber-500/10 text-amber-600 border border-amber-500/30"
                     }`}
                   >
-                    {getSlotLabel(ad.slot)}
+                    Slot #{displaySlot}
                   </span>
                 </div>
               )}
@@ -413,6 +431,7 @@ export default function AdDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
 
     </div>
   );

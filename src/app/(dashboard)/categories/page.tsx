@@ -58,41 +58,11 @@ import {
   RefreshCw,
   Plus,
   Megaphone,
-  Code,
-  Palette,
-  Heart,
-  Wrench,
-  MapPin,
-  BookOpen,
-  Camera,
-  ShoppingCart,
-  BriefcaseBusiness,
-  LucideIcon,
   User,
   Crown,
   Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-
-// Icon options for category selection (mapping Ionicons names to Lucide icons)
-const ICON_OPTIONS: { name: string; icon: LucideIcon; label: string }[] = [
-  { name: "color-palette", icon: Palette, label: "Creative" },
-  { name: "code-slash", icon: Code, label: "Technology" },
-  { name: "megaphone", icon: Megaphone, label: "Marketing" },
-  { name: "construct", icon: Wrench, label: "Trades" },
-  { name: "heart", icon: Heart, label: "Lifestyle" },
-  { name: "book", icon: BookOpen, label: "Education" },
-  { name: "location", icon: MapPin, label: "Local" },
-  { name: "camera", icon: Camera, label: "Media" },
-  { name: "cart", icon: ShoppingCart, label: "Shopping" },
-  { name: "briefcase", icon: BriefcaseBusiness, label: "Business" },
-];
-
-// Helper to get icon component by Ionicons name
-const getIconByName = (name: string): LucideIcon => {
-  const found = ICON_OPTIONS.find((opt) => opt.name === name);
-  return found?.icon || Folder;
-};
 
 export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
@@ -107,9 +77,6 @@ export default function CategoriesPage() {
     category: Category | null;
   }>({ open: false, category: null });
   const [editName, setEditName] = useState("");
-  const [editIcon, setEditIcon] = useState("");
-  const [editColorStart, setEditColorStart] = useState("#4ECDC4");
-  const [editColorEnd, setEditColorEnd] = useState("#6EE7DE");
   
   // Delete dialog state
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -121,9 +88,6 @@ export default function CategoriesPage() {
   const [createDialog, setCreateDialog] = useState(false);
   const [createType, setCreateType] = useState<"category" | "subcategory">("category");
   const [createName, setCreateName] = useState("");
-  const [createIcon, setCreateIcon] = useState("");
-  const [createColorStart, setCreateColorStart] = useState("#4ECDC4");
-  const [createColorEnd, setCreateColorEnd] = useState("#6EE7DE");
   const [createParentId, setCreateParentId] = useState("");  // Store parent category value
   const [createOrder, setCreateOrder] = useState(1);
   const [creating, setCreating] = useState(false);
@@ -234,9 +198,6 @@ export default function CategoriesPage() {
 
   const openEditDialog = (category: Category) => {
     setEditName(category.name);
-    setEditIcon(category.icon || "");
-    setEditColorStart(category.colorStart || "#4ECDC4");
-    setEditColorEnd(category.colorEnd || "#6EE7DE");
     setEditNameError("");
     setEditDialog({ open: true, category });
   };
@@ -261,33 +222,13 @@ export default function CategoriesPage() {
     setEditNameError("");
     setActionLoading(editDialog.category.$id);
     try {
-      const isMainCategory = editDialog.category.type === "category";
-      const updateData: { name: string; icon?: string; colorStart?: string; colorEnd?: string } = {
-        name: editName.trim(),
-      };
-      
-      // Only update icon and colors for main categories
-      if (isMainCategory) {
-        if (editIcon) updateData.icon = editIcon;
-        if (editColorStart) updateData.colorStart = editColorStart;
-        if (editColorEnd) updateData.colorEnd = editColorEnd;
-      }
-      
-      await updateCategory(editDialog.category.$id, updateData);
+      await updateCategory(editDialog.category.$id, { name: editName.trim() });
       
       // Update local state
       setCategories((prev) =>
         prev.map((cat) =>
           cat.$id === editDialog.category?.$id
-            ? { 
-                ...cat, 
-                name: editName.trim(), 
-                ...(isMainCategory ? { 
-                  icon: editIcon || cat.icon, 
-                  colorStart: editColorStart, 
-                  colorEnd: editColorEnd 
-                } : {}) 
-              }
+            ? { ...cat, name: editName.trim() }
             : cat
         )
       );
@@ -341,9 +282,6 @@ export default function CategoriesPage() {
   const openCreateDialog = (type: "category" | "subcategory" = "category", parentValue?: string) => {
     setCreateType(type);
     setCreateName("");
-    setCreateIcon(type === "category" ? "color-palette" : ""); // Default icon for categories
-    setCreateColorStart("#4ECDC4");
-    setCreateColorEnd("#6EE7DE");
     setCreateParentId(parentValue || "");  // Store parent category value
     setCreateOrder(type === "category" ? mainCategories.length + 1 : 1);
     setCreateNameError("");
@@ -388,9 +326,7 @@ export default function CategoriesPage() {
         parentId: createType === "subcategory" ? createParentId : undefined,
         value,
         name: createName.trim(),
-        icon: createIcon || (createType === "category" ? "color-palette" : "-"),
-        colorStart: createType === "category" ? createColorStart : undefined,
-        colorEnd: createType === "category" ? createColorEnd : undefined,
+        icon: createType === "category" ? "color-palette" : "-",
         order: createOrder,
       });
 
@@ -524,8 +460,7 @@ export default function CategoriesPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead className="text-muted-foreground w-[50%]">Category</TableHead>
-                <TableHead className="text-muted-foreground">Color</TableHead>
+                <TableHead className="text-muted-foreground w-[60%]">Category</TableHead>
                 <TableHead className="text-muted-foreground">Order</TableHead>
                 <TableHead className="text-muted-foreground w-[100px]">Actions</TableHead>
               </TableRow>
@@ -541,7 +476,6 @@ export default function CategoriesPage() {
                         <Skeleton className="h-4 w-40" />
                       </div>
                     </TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                   </TableRow>
@@ -549,7 +483,7 @@ export default function CategoriesPage() {
               ) : filteredMainCategories.length === 0 ? (
                 // Empty state
                 <TableRow>
-                  <TableCell colSpan={4} className="h-48">
+                  <TableCell colSpan={3} className="h-48">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <FolderTree className="h-12 w-12 mb-4 opacity-50" />
                       <p>No categories found</p>
@@ -590,21 +524,11 @@ export default function CategoriesPage() {
                                 <span className="w-4" />
                               )}
                             </Button>
-                            {(() => {
-                              const IconComponent = getIconByName(category.icon);
-                              return (
-                                <div
-                                  className="h-8 w-8 rounded flex items-center justify-center"
-                                  style={{ 
-                                    background: category.colorStart && category.colorEnd 
-                                      ? `linear-gradient(135deg, ${category.colorStart}, ${category.colorEnd})`
-                                      : category.colorStart || "#666" 
-                                  }}
-                                >
-                                  <IconComponent className="h-4 w-4 text-white" />
-                                </div>
-                              );
-                            })()}
+                            <div
+                              className="h-8 w-8 rounded flex items-center justify-center bg-primary/20"
+                            >
+                              <Folder className="h-4 w-4 text-primary" />
+                            </div>
                             <div>
                               <p className="font-medium">{category.name}</p>
                               <p className="text-xs text-muted-foreground">
@@ -612,18 +536,6 @@ export default function CategoriesPage() {
                               </p>
                             </div>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {/* Color preview */}
-                          <div 
-                            className="h-6 w-16 rounded"
-                            style={{ 
-                              background: category.colorStart && category.colorEnd 
-                                ? `linear-gradient(90deg, ${category.colorStart}, ${category.colorEnd})`
-                                : category.colorStart || "#666" 
-                            }}
-                            title={`${category.colorStart} → ${category.colorEnd}`}
-                          />
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {category.order}
@@ -694,9 +606,6 @@ export default function CategoriesPage() {
                                     </div>
                                   </div>
                                 </TableCell>
-                                <TableCell>
-                                  <span className="text-sm text-muted-foreground">-</span>
-                                </TableCell>
                                 <TableCell className="text-muted-foreground text-sm">
                                   {sub.order}
                                 </TableCell>
@@ -731,7 +640,7 @@ export default function CategoriesPage() {
                               {/* Sponsor Ads for this subcategory */}
                               {isLoadingAds ? (
                                 <TableRow className="border-border/20 bg-gradient-to-r from-amber-500/5 to-transparent">
-                                  <TableCell colSpan={4} className="py-3">
+                                  <TableCell colSpan={3} className="py-3">
                                     <div className="flex items-center gap-2 pl-16">
                                       <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
                                       <span className="text-xs text-muted-foreground">Loading sponsors...</span>
@@ -744,7 +653,7 @@ export default function CategoriesPage() {
                                     key={adSlot.ad.$id}
                                     className="border-border/20 bg-gradient-to-r from-amber-500/5 to-transparent hover:from-amber-500/10"
                                   >
-                                    <TableCell colSpan={3}>
+                                    <TableCell colSpan={2}>
                                       <div className="flex items-center gap-3 pl-16">
                                         {/* User Avatar */}
                                         <Avatar className="h-8 w-8 border-2 border-amber-500/30">
@@ -763,12 +672,12 @@ export default function CategoriesPage() {
                                         {/* User Info */}
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium truncate">
-                                              {adSlot.user 
-                                                ? `${adSlot.user.firstName} ${adSlot.user.lastName}`.trim() || "Unknown"
-                                                : "Unknown User"
-                                              }
-                                            </span>
+                                              <span className="text-sm font-medium truncate">
+                                                {adSlot.user 
+                                                 ? `${adSlot.user.firstName} ${adSlot.user.lastName}`.trim() || "Premium Ad"
+                                                 : "Premium Ad"
+                                                }
+                                              </span>
                                             {/* Plan Badge */}
                                             {adSlot.plan && (
                                               <Badge 
@@ -791,9 +700,11 @@ export default function CategoriesPage() {
                                               </Badge>
                                             )}
                                           </div>
-                                          <p className="text-xs text-muted-foreground truncate">
-                                            {adSlot.user?.email || "No email"}
-                                          </p>
+                                            {adSlot.user?.email && (
+                                              <p className="text-xs text-muted-foreground truncate">
+                                                {adSlot.user.email}
+                                              </p>
+                                            )}
                                         </div>
                                       </div>
                                     </TableCell>
@@ -856,88 +767,6 @@ export default function CategoriesPage() {
                 <p className="text-xs text-destructive">{editNameError}</p>
               )}
             </div>
-            
-            {/* Icon selector - only for main categories */}
-            {editDialog.category?.type === "category" && (
-              <div className="space-y-2">
-                <Label>Icon</Label>
-                <div className="grid grid-cols-5 gap-2">
-                  {ICON_OPTIONS.map((opt) => {
-                    const IconComponent = opt.icon;
-                    const isSelected = editIcon === opt.name;
-                    return (
-                      <button
-                        key={opt.name}
-                        type="button"
-                        onClick={() => setEditIcon(isSelected ? "" : opt.name)}
-                        className={`
-                          flex flex-col items-center justify-center p-2 rounded-lg border transition-all
-                          ${isSelected
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border/50 hover:border-primary/50 hover:bg-secondary/50"
-                          }
-                        `}
-                        title={opt.label}
-                      >
-                        <IconComponent className="h-5 w-5" />
-                        <span className="text-[10px] mt-1 truncate w-full text-center">
-                          {opt.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            
-            {/* Gradient Color (for main category only) */}
-            {editDialog.category?.type === "category" && (
-              <div className="space-y-2">
-                <Label>Gradient Color</Label>
-                <div className="flex gap-2 items-center">
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">Start</span>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={editColorStart}
-                        onChange={(e) => setEditColorStart(e.target.value)}
-                        className="w-12 h-9 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={editColorStart}
-                        onChange={(e) => setEditColorStart(e.target.value)}
-                        placeholder="#4ECDC4"
-                        className="flex-1 bg-input/50 border-border/50 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <span className="text-muted-foreground mt-4">→</span>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">End</span>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={editColorEnd}
-                        onChange={(e) => setEditColorEnd(e.target.value)}
-                        className="w-12 h-9 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={editColorEnd}
-                        onChange={(e) => setEditColorEnd(e.target.value)}
-                        placeholder="#6EE7DE"
-                        className="flex-1 bg-input/50 border-border/50 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-                {/* Preview */}
-                <div 
-                  className="h-8 w-full rounded mt-2"
-                  style={{ background: `linear-gradient(90deg, ${editColorStart}, ${editColorEnd})` }}
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button
@@ -1104,88 +933,6 @@ export default function CategoriesPage() {
                 <p className="text-xs text-destructive">{createNameError}</p>
               )}
             </div>
-
-            {/* Icon (for main category only) */}
-            {createType === "category" && (
-              <div className="space-y-2">
-                <Label>Icon</Label>
-                <div className="grid grid-cols-5 gap-2">
-                  {ICON_OPTIONS.map((opt) => {
-                    const IconComponent = opt.icon;
-                    const isSelected = createIcon === opt.name;
-                    return (
-                      <button
-                        key={opt.name}
-                        type="button"
-                        onClick={() => setCreateIcon(isSelected ? "" : opt.name)}
-                        className={`
-                          flex flex-col items-center justify-center p-2 rounded-lg border transition-all
-                          ${isSelected
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border/50 hover:border-primary/50 hover:bg-secondary/50"
-                          }
-                        `}
-                        title={opt.label}
-                      >
-                        <IconComponent className="h-5 w-5" />
-                        <span className="text-[10px] mt-1 truncate w-full text-center">
-                          {opt.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Gradient Color (for main category only) */}
-            {createType === "category" && (
-              <div className="space-y-2">
-                <Label>Gradient Color</Label>
-                <div className="flex gap-2 items-center">
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">Start</span>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={createColorStart}
-                        onChange={(e) => setCreateColorStart(e.target.value)}
-                        className="w-12 h-9 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={createColorStart}
-                        onChange={(e) => setCreateColorStart(e.target.value)}
-                        placeholder="#4ECDC4"
-                        className="flex-1 bg-input/50 border-border/50 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <span className="text-muted-foreground mt-4">→</span>
-                  <div className="flex-1 space-y-1">
-                    <span className="text-xs text-muted-foreground">End</span>
-                    <div className="flex gap-2">
-                      <Input
-                        type="color"
-                        value={createColorEnd}
-                        onChange={(e) => setCreateColorEnd(e.target.value)}
-                        className="w-12 h-9 p-1 cursor-pointer"
-                      />
-                      <Input
-                        value={createColorEnd}
-                        onChange={(e) => setCreateColorEnd(e.target.value)}
-                        placeholder="#6EE7DE"
-                        className="flex-1 bg-input/50 border-border/50 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-                {/* Preview */}
-                <div 
-                  className="h-8 w-full rounded mt-2"
-                  style={{ background: `linear-gradient(90deg, ${createColorStart}, ${createColorEnd})` }}
-                />
-              </div>
-            )}
 
             {/* Order */}
             <div className="space-y-2">

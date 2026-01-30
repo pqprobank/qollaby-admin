@@ -745,6 +745,47 @@ export interface Post {
   isBlacklisted?: boolean;
 }
 
+// Exchange Listing interface (separate table from posts)
+export interface ExchangeListing {
+  $id: string;
+  $createdAt: string;
+  $updatedAt: string;
+  userId: string;
+  title: string;
+  description: string;
+  media: string[];
+  category: string;
+  subCategory: string;
+  locationState: string;
+  locationCity: string;
+  locationId?: string;
+  startingPrice?: number | null;
+  currentBid?: number | null;
+  auctionEndDate?: string | null;
+  status: string;
+  transactionType?: string;
+  // For compatibility with Post display
+  type: "exchange";
+  isBlacklisted?: boolean;
+}
+
+export interface ExchangeListingListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  state?: string;
+  city?: string;
+  category?: string;
+  subcategory?: string;
+}
+
+export interface ExchangeListingListResult {
+  listings: ExchangeListing[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 // Report interface
 export interface Report {
   $id: string;
@@ -771,7 +812,11 @@ export interface PostListParams {
   page?: number;
   limit?: number;
   search?: string;
-  type?: "all" | "post" | "event";
+  type?: "all" | "post" | "event" | "exchange";
+  state?: string;
+  city?: string;
+  category?: string;
+  subcategory?: string;
 }
 
 export interface PostListResult {
@@ -782,10 +827,10 @@ export interface PostListResult {
 }
 
 /**
- * Get paginated list of posts
+ * Get paginated list of posts (from posts table - post/event types only)
  */
 export async function getPosts(params: PostListParams = {}): Promise<PostListResult> {
-  const { page = 1, limit = 20, search, type = "all" } = params;
+  const { page = 1, limit = 20, search, type = "all", state, city, category, subcategory } = params;
   const offset = (page - 1) * limit;
 
   try {
@@ -798,7 +843,7 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
     // Count query (same filters but without pagination)
     const countQueries: string[] = [Query.limit(1)];
 
-    // Filter by type (post, event, or all)
+    // Filter by type (post, event, or all) - exchange is in separate table
     if (type === "post") {
       queries.push(Query.equal("type", "post"));
       countQueries.push(Query.equal("type", "post"));
@@ -806,14 +851,39 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
       queries.push(Query.equal("type", "event"));
       countQueries.push(Query.equal("type", "event"));
     } else {
-      // "all" - include both post and event types
+      // "all" - include both post and event types (exchange is separate)
       queries.push(Query.contains("type", ["post", "event"]));
       countQueries.push(Query.contains("type", ["post", "event"]));
     }
 
+    // Filter by search
     if (search && search.trim()) {
       queries.push(Query.contains("title", search.trim()));
       countQueries.push(Query.contains("title", search.trim()));
+    }
+
+    // Filter by state (locationState in posts table)
+    if (state && state.trim()) {
+      queries.push(Query.equal("locationState", state.trim()));
+      countQueries.push(Query.equal("locationState", state.trim()));
+    }
+
+    // Filter by city (locationCity in posts table)
+    if (city && city.trim()) {
+      queries.push(Query.equal("locationCity", city.trim()));
+      countQueries.push(Query.equal("locationCity", city.trim()));
+    }
+
+    // Filter by category
+    if (category && category.trim()) {
+      queries.push(Query.equal("category", category.trim()));
+      countQueries.push(Query.equal("category", category.trim()));
+    }
+
+    // Filter by subcategory
+    if (subcategory && subcategory.trim()) {
+      queries.push(Query.equal("subCategory", subcategory.trim()));
+      countQueries.push(Query.equal("subCategory", subcategory.trim()));
     }
 
     const [postsRes, totalRes] = await Promise.all([
@@ -837,6 +907,84 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
     };
   } catch (error) {
     console.error("Error fetching posts:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get paginated list of exchange listings (from exchange_listings table)
+ */
+export async function getExchangeListings(params: ExchangeListingListParams = {}): Promise<ExchangeListingListResult> {
+  const { page = 1, limit = 20, search, state, city, category, subcategory } = params;
+  const offset = (page - 1) * limit;
+
+  try {
+    const queries: string[] = [
+      Query.orderDesc("$createdAt"),
+      Query.limit(limit),
+      Query.offset(offset),
+    ];
+
+    // Count query (same filters but without pagination)
+    const countQueries: string[] = [Query.limit(1)];
+
+    // Filter by search
+    if (search && search.trim()) {
+      queries.push(Query.contains("title", search.trim()));
+      countQueries.push(Query.contains("title", search.trim()));
+    }
+
+    // Filter by state (locationState in exchange_listings)
+    if (state && state.trim()) {
+      queries.push(Query.equal("locationState", state.trim()));
+      countQueries.push(Query.equal("locationState", state.trim()));
+    }
+
+    // Filter by city (locationCity in exchange_listings)
+    if (city && city.trim()) {
+      queries.push(Query.equal("locationCity", city.trim()));
+      countQueries.push(Query.equal("locationCity", city.trim()));
+    }
+
+    // Filter by category
+    if (category && category.trim()) {
+      queries.push(Query.equal("category", category.trim()));
+      countQueries.push(Query.equal("category", category.trim()));
+    }
+
+    // Filter by subcategory (subCategory in exchange_listings)
+    if (subcategory && subcategory.trim()) {
+      queries.push(Query.equal("subCategory", subcategory.trim()));
+      countQueries.push(Query.equal("subCategory", subcategory.trim()));
+    }
+
+    const [listingsRes, totalRes] = await Promise.all([
+      databases.listDocuments(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+        Collections.EXCHANGE_LISTINGS,
+        queries
+      ),
+      databases.listDocuments(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+        Collections.EXCHANGE_LISTINGS,
+        countQueries
+      ),
+    ]);
+
+    // Add type: "exchange" for compatibility with Post display
+    const listings = listingsRes.documents.map((doc) => ({
+      ...doc,
+      type: "exchange" as const,
+    })) as unknown as ExchangeListing[];
+
+    return {
+      listings,
+      total: totalRes.total,
+      page,
+      totalPages: Math.ceil(totalRes.total / limit),
+    };
+  } catch (error) {
+    console.error("Error fetching exchange listings:", error);
     throw error;
   }
 }
@@ -1383,6 +1531,8 @@ export interface SponsorAd {
   // Blacklist status (admin moderation)
   isBlacklisted?: boolean;
   slot?: number;
+  // Admin created ad flag
+  isAdminCreated?: boolean;
 }
 
 export interface SponsorAdListParams {
@@ -1390,6 +1540,10 @@ export interface SponsorAdListParams {
   limit?: number;
   search?: string;
   status?: "all" | SponsorAdStatus;
+  state?: string;
+  city?: string;
+  category?: string;
+  subcategory?: string;
 }
 
 export interface SponsorAdListResult {
@@ -1400,10 +1554,45 @@ export interface SponsorAdListResult {
 }
 
 /**
+ * Get all admin-created ads organized by slot
+ */
+export async function getAdminAdsBySlot(): Promise<Map<number, SponsorAd[]>> {
+  try {
+    const queries: string[] = [
+      Query.equal("isAdminCreated", true),
+      Query.limit(500), // Get all admin ads
+    ];
+
+    const adsRes = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      queries
+    );
+
+    // Organize ads by slot (stored slot, not display slot)
+    const adsBySlot = new Map<number, SponsorAd[]>();
+    for (const doc of adsRes.documents) {
+      const ad = doc as unknown as SponsorAd;
+      const storedSlot = ad.slot;
+      if (storedSlot !== undefined && storedSlot !== null) {
+        const existing = adsBySlot.get(storedSlot) || [];
+        existing.push(ad);
+        adsBySlot.set(storedSlot, existing);
+      }
+    }
+
+    return adsBySlot;
+  } catch (error) {
+    console.error("Error fetching admin ads by slot:", error);
+    return new Map();
+  }
+}
+
+/**
  * Get paginated list of sponsor ads
  */
 export async function getSponsorAds(params: SponsorAdListParams = {}): Promise<SponsorAdListResult> {
-  const { page = 1, limit = 20, search, status = "all" } = params;
+  const { page = 1, limit = 20, search, status = "all", state, city, category, subcategory } = params;
   const offset = (page - 1) * limit;
 
   try {
@@ -1423,6 +1612,30 @@ export async function getSponsorAds(params: SponsorAdListParams = {}): Promise<S
     if (search && search.trim()) {
       queries.push(Query.contains("title", search.trim()));
       countQueries.push(Query.contains("title", search.trim()));
+    }
+
+    // Filter by state
+    if (state && state.trim()) {
+      queries.push(Query.equal("state", state.trim()));
+      countQueries.push(Query.equal("state", state.trim()));
+    }
+
+    // Filter by city
+    if (city && city.trim()) {
+      queries.push(Query.equal("city", city.trim()));
+      countQueries.push(Query.equal("city", city.trim()));
+    }
+
+    // Filter by category
+    if (category && category.trim()) {
+      queries.push(Query.equal("category", category.trim()));
+      countQueries.push(Query.equal("category", category.trim()));
+    }
+
+    // Filter by subcategory
+    if (subcategory && subcategory.trim()) {
+      queries.push(Query.equal("subcategory", subcategory.trim()));
+      countQueries.push(Query.equal("subcategory", subcategory.trim()));
     }
 
     const [adsRes, totalRes] = await Promise.all([
@@ -1684,6 +1897,88 @@ export async function updateSponsorAdStatus(
 }
 
 /**
+ * Update ad slot for admin-created ads
+ * Note: slot is stored as (displaySlot - 1) in database
+ */
+export async function updateSponsorAdSlot(
+  adId: string,
+  slot: AdSlot
+): Promise<SponsorAd | null> {
+  try {
+    const doc = await databases.updateDocument(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      adId,
+      { slot: slot - 1 } // Store as slot - 1
+    );
+    return doc as unknown as SponsorAd;
+  } catch (error) {
+    console.error("Error updating sponsor ad slot:", error);
+    return null;
+  }
+}
+
+/**
+ * Update sponsor ad (admin-created ads only)
+ */
+export interface UpdateSponsorAdInput {
+  title?: string;
+  description?: string;
+  media?: string[];
+  state?: string;
+  city?: string;
+  category?: string;
+  subcategory?: string;
+  slot?: AdSlot;
+}
+
+export async function updateSponsorAd(
+  adId: string,
+  input: UpdateSponsorAdInput
+): Promise<SponsorAd | null> {
+  try {
+    const updateData: Record<string, unknown> = {};
+    
+    if (input.title !== undefined) updateData.title = input.title;
+    if (input.description !== undefined) updateData.description = input.description;
+    if (input.media !== undefined) updateData.media = input.media;
+    if (input.state !== undefined) updateData.state = input.state;
+    if (input.city !== undefined) updateData.city = input.city;
+    if (input.category !== undefined) updateData.category = input.category;
+    if (input.subcategory !== undefined) updateData.subcategory = input.subcategory;
+    if (input.slot !== undefined) updateData.slot = input.slot - 1; // Store as slot - 1
+
+    const doc = await databases.updateDocument(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      adId,
+      updateData
+    );
+    return doc as unknown as SponsorAd;
+  } catch (error) {
+    console.error("Error updating sponsor ad:", error);
+    return null;
+  }
+}
+
+/**
+ * Delete sponsor ad (admin-created ads only)
+ */
+export async function deleteSponsorAd(adId: string): Promise<boolean> {
+  try {
+    await databases.deleteDocument(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      adId
+    );
+    return true;
+  } catch (error) {
+    console.error("Error deleting sponsor ad:", error);
+    return false;
+  }
+}
+
+/**
  * Get ad likes count
  */
 export async function getAdLikeCount(adId: string): Promise<number> {
@@ -1726,6 +2021,148 @@ export async function getAdsLikeCounts(adIds: string[]): Promise<Map<string, num
     adIds.forEach((id) => result.set(id, 0));
     return result;
   }
+}
+
+/**
+ * Available ad slots for admin to choose from
+ */
+export const AD_SLOTS = [1, 5, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110] as const;
+export type AdSlot = typeof AD_SLOTS[number];
+
+/**
+ * Slots that can be used up to 3 times
+ */
+export const MULTI_USE_SLOTS = [5, 8, 15, 25, 35, 45, 55, 65] as const;
+
+/**
+ * Slots that can only be used once
+ */
+export const SINGLE_USE_SLOTS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110] as const;
+
+/**
+ * Get max usage count for a slot
+ */
+export function getSlotMaxUsage(slot: number): number {
+  if ((MULTI_USE_SLOTS as readonly number[]).includes(slot)) {
+    return 3;
+  }
+  return 1;
+}
+
+/**
+ * Create sponsor ad input type
+ */
+export interface CreateSponsorAdInput {
+  userId: string;
+  title: string;
+  description?: string;
+  media: string[];
+  state: string;
+  city: string;
+  category: string;
+  subcategory?: string;
+  slot: AdSlot;
+  externalLink?: string;
+}
+
+/**
+ * Create a new sponsor ad (admin only)
+ * Note: slot is stored as (displaySlot - 1) in database
+ */
+export async function createSponsorAd(input: CreateSponsorAdInput): Promise<SponsorAd> {
+  try {
+    // Set default expiry to 30 days from now
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const doc = await databases.createDocument(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      "unique()",
+      {
+        userId: input.userId,
+        title: input.title,
+        description: input.description || "",
+        media: input.media,
+        state: input.state,
+        city: input.city,
+        category: input.category,
+        subcategory: input.subcategory || "",
+        slot: input.slot - 1, // Store as slot - 1
+        externalLink: input.externalLink || "",
+        status: "active",
+        views: 0,
+        clicks: 0,
+        expiresAt: expiresAt.toISOString(),
+        isBlacklisted: false,
+        isAdminCreated: true, // Mark as admin-created ad
+      }
+    );
+
+    return doc as unknown as SponsorAd;
+  } catch (error) {
+    console.error("Error creating sponsor ad:", error);
+    throw error;
+  }
+}
+
+/**
+ * Slot usage info - how many times each slot is used
+ */
+export interface SlotUsageInfo {
+  [slot: number]: number;
+}
+
+/**
+ * Get slot usage counts (how many times each slot is used by admin-created active ads)
+ * Only checks admin-created ads - regular user ads don't affect admin slot availability
+ * Note: Database stores slot as (displaySlot - 1), so we convert back to display value
+ */
+export async function getSlotUsageCounts(): Promise<SlotUsageInfo> {
+  try {
+    const res = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.SPONSOR_ADS,
+      [
+        Query.equal("isAdminCreated", true),
+        Query.isNotNull("slot"),
+        Query.limit(1000),
+      ]
+    );
+
+    const usageCounts: SlotUsageInfo = {};
+    
+    res.documents.forEach((doc) => {
+      const storedSlot = doc.slot as number | undefined;
+      if (storedSlot !== undefined && storedSlot !== null) {
+        const displaySlot = storedSlot + 1; // Convert back to display value
+        usageCounts[displaySlot] = (usageCounts[displaySlot] || 0) + 1;
+      }
+    });
+
+    return usageCounts;
+  } catch (error) {
+    console.error("Error fetching slot usage counts:", error);
+    return {};
+  }
+}
+
+/**
+ * Check if a slot is available for use
+ */
+export function isSlotAvailable(slot: number, usageCounts: SlotUsageInfo): boolean {
+  const currentUsage = usageCounts[slot] || 0;
+  const maxUsage = getSlotMaxUsage(slot);
+  return currentUsage < maxUsage;
+}
+
+/**
+ * Get remaining usage count for a slot
+ */
+export function getSlotRemainingUsage(slot: number, usageCounts: SlotUsageInfo): number {
+  const currentUsage = usageCounts[slot] || 0;
+  const maxUsage = getSlotMaxUsage(slot);
+  return Math.max(0, maxUsage - currentUsage);
 }
 
 // ==================== User Registration Stats ====================

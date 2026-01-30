@@ -18,8 +18,28 @@ import {
 } from "@/lib/user-actions";
 import { getCategoryLabel } from "@/lib/categories";
 import { Profile, UserRole, UserSubscriptionInfo } from "@/types/profile.types";
+import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+// US State abbreviation to full name mapping
+const US_STATE_NAMES: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
+const getStateFullName = (stateCode: string): string => {
+  return US_STATE_NAMES[stateCode.toUpperCase()] || stateCode;
+};
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -87,6 +107,7 @@ export default function UsersPage() {
   const [hasBusinessProfileFilter, setHasBusinessProfileFilter] = useState<"all" | "yes" | "no">("all");
   const [stateFilter, setStateFilter] = useState<string>("");
   const [cityFilter, setCityFilter] = useState<string>("");
+  const [selectedLocation, setSelectedLocation] = useState<PlaceValue | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [filterOptions, setFilterOptions] = useState<UserFilterOptions>({ states: [], cities: [], categories: [] });
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -188,8 +209,23 @@ export default function UsersPage() {
     setHasBusinessProfileFilter("all");
     setStateFilter("");
     setCityFilter("");
+    setSelectedLocation(null);
     setCategoryFilter("");
     setPage(1);
+  };
+
+  // Handle location change from LocationPicker
+  const handleLocationChange = (location: PlaceValue | null) => {
+    setSelectedLocation(location);
+    if (location?.state) {
+      // Use state abbreviation directly for search (e.g., "CA" instead of "California")
+      // because the database stores abbreviations in locationAddress
+      setStateFilter(location.state);
+      setCityFilter(location.city || "");
+    } else {
+      setStateFilter("");
+      setCityFilter("");
+    }
   };
 
   const hasActiveFilters = search || roleFilter !== "all" || subscriptionFilter !== "all" || 
@@ -426,76 +462,19 @@ export default function UsersPage() {
               </DropdownMenu>
             </div>
 
-            {/* State Filter */}
-            <div className="space-y-2">
+            {/* Location Filter */}
+            <div className="space-y-2 col-span-2">
               <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                State
+                Location
               </label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-between bg-input/50 border-border/50"
-                  >
-                    {stateFilter || "All States"}
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-full min-w-[200px] bg-card border-border/50 max-h-[300px] overflow-y-auto">
-                  <DropdownMenuItem onClick={() => setStateFilter("")} className="cursor-pointer">
-                    {!stateFilter && <Check className="h-4 w-4 mr-2" />}
-                    <span className={stateFilter ? "ml-6" : ""}>All States</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {filterOptions.states.map((state) => (
-                    <DropdownMenuItem 
-                      key={state} 
-                      onClick={() => setStateFilter(state)} 
-                      className="cursor-pointer"
-                    >
-                      {stateFilter === state && <Check className="h-4 w-4 mr-2" />}
-                      <span className={stateFilter !== state ? "ml-6" : ""}>{state}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            {/* City Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                City
-              </label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-between bg-input/50 border-border/50"
-                  >
-                    {cityFilter || "All Cities"}
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-full min-w-[200px] bg-card border-border/50 max-h-[300px] overflow-y-auto">
-                  <DropdownMenuItem onClick={() => setCityFilter("")} className="cursor-pointer">
-                    {!cityFilter && <Check className="h-4 w-4 mr-2" />}
-                    <span className={cityFilter ? "ml-6" : ""}>All Cities</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {filterOptions.cities.map((city) => (
-                    <DropdownMenuItem 
-                      key={city} 
-                      onClick={() => setCityFilter(city)} 
-                      className="cursor-pointer"
-                    >
-                      {cityFilter === city && <Check className="h-4 w-4 mr-2" />}
-                      <span className={cityFilter !== city ? "ml-6" : ""}>{city}</span>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <LocationPicker
+                value={selectedLocation}
+                onChange={handleLocationChange}
+                placeholder="Search city or address..."
+                countryRestriction="us"
+                showCurrentLocation={false}
+              />
             </div>
 
             {/* Category Filter */}
@@ -580,13 +559,13 @@ export default function UsersPage() {
               {stateFilter && (
                 <Badge variant="secondary" className="gap-1">
                   State: {stateFilter}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setStateFilter("")} />
+                  <X className="h-3 w-3 cursor-pointer" onClick={() => { setStateFilter(""); setCityFilter(""); setSelectedLocation(null); }} />
                 </Badge>
               )}
               {cityFilter && (
                 <Badge variant="secondary" className="gap-1">
                   City: {cityFilter}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setCityFilter("")} />
+                  <X className="h-3 w-3 cursor-pointer" onClick={() => { setCityFilter(""); }} />
                 </Badge>
               )}
               {categoryFilter && (
