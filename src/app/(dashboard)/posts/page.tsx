@@ -99,6 +99,15 @@ export default function PostsPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const fetchItems = useCallback(async () => {
+    console.log("[PostsPage] fetchItems called with filters:", {
+      page,
+      typeFilter,
+      stateFilter,
+      cityFilter,
+      categoryFilter,
+      subcategoryFilter,
+      search,
+    });
     setLoading(true);
     try {
       let itemsData: PostOrExchange[] = [];
@@ -107,6 +116,7 @@ export default function PostsPage() {
 
       if (typeFilter === "exchange") {
         // Fetch from exchange_listings table
+        console.log("[PostsPage] Fetching exchange listings...");
         const result: ExchangeListingListResult = await getExchangeListings({
           page,
           limit: 20,
@@ -116,11 +126,23 @@ export default function PostsPage() {
           category: categoryFilter || undefined,
           subcategory: subcategoryFilter || undefined,
         });
+        console.log("[PostsPage] Exchange listings result:", {
+          total: result.total,
+          listingsCount: result.listings.length,
+        });
         itemsData = result.listings;
         totalCount = result.total;
         totalPagesCount = result.totalPages;
       } else {
         // Fetch from posts table (post/event types)
+        console.log("[PostsPage] Fetching posts with params:", {
+          page,
+          type: typeFilter,
+          state: stateFilter || undefined,
+          city: cityFilter || undefined,
+          category: categoryFilter || undefined,
+          subcategory: subcategoryFilter || undefined,
+        });
         const result: PostListResult = await getPosts({
           page,
           limit: 20,
@@ -130,6 +152,18 @@ export default function PostsPage() {
           city: cityFilter || undefined,
           category: categoryFilter || undefined,
           subcategory: subcategoryFilter || undefined,
+        });
+        console.log("[PostsPage] Posts result:", {
+          total: result.total,
+          postsCount: result.posts.length,
+          firstPost: result.posts[0] ? {
+            id: result.posts[0].$id,
+            title: result.posts[0].title,
+            // Check if these fields exist in the actual data
+            locationState: (result.posts[0] as any).locationState,
+            locationCity: (result.posts[0] as any).locationCity,
+            locationAddress: result.posts[0].locationAddress,
+          } : null,
         });
         itemsData = result.posts;
         totalCount = result.total;
@@ -233,13 +267,22 @@ export default function PostsPage() {
 
   // Handle location change - auto apply filter
   const handleLocationChange = (location: PlaceValue | null) => {
+    console.log("[PostsPage] handleLocationChange called with:", {
+      location,
+      state: location?.state,
+      city: location?.city,
+      address: location?.address,
+    });
     setSelectedLocation(location);
     if (location?.state) {
-      // Use state abbreviation directly (e.g., "CA") for filtering
-      // because the database stores abbreviations
-      setStateFilter(location.state);
+      // Convert state abbreviation (e.g., "CA") to full name (e.g., "California")
+      // because the database stores full state names
+      const stateFullName = getStateFullName(location.state);
+      console.log("[PostsPage] Setting filters - state:", location.state, "->", stateFullName, "city:", location.city || "");
+      setStateFilter(stateFullName);
       setCityFilter(location.city || "");
     } else {
+      console.log("[PostsPage] Clearing location filters");
       setStateFilter("");
       setCityFilter("");
     }

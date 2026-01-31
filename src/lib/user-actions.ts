@@ -734,6 +734,9 @@ export interface Post {
   location?: [number, number] | null;
   locationAddress?: string;
   locationPlaceId?: string;
+  // Location state and city for filtering
+  locationState?: string;
+  locationCity?: string;
   // User's actual location when posting - stored as [longitude, latitude] array
   userLocation?: [number, number] | null;
   userLocationAddress?: string;
@@ -833,6 +836,8 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
   const { page = 1, limit = 20, search, type = "all", state, city, category, subcategory } = params;
   const offset = (page - 1) * limit;
 
+  console.log("[getPosts] Called with params:", { page, limit, search, type, state, city, category, subcategory });
+
   try {
     const queries: string[] = [
       Query.orderDesc("$createdAt"),
@@ -864,12 +869,14 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
 
     // Filter by state (locationState in posts table)
     if (state && state.trim()) {
+      console.log("[getPosts] Adding state filter: locationState =", state.trim());
       queries.push(Query.equal("locationState", state.trim()));
       countQueries.push(Query.equal("locationState", state.trim()));
     }
 
     // Filter by city (locationCity in posts table)
     if (city && city.trim()) {
+      console.log("[getPosts] Adding city filter: locationCity =", city.trim());
       queries.push(Query.equal("locationCity", city.trim()));
       countQueries.push(Query.equal("locationCity", city.trim()));
     }
@@ -886,6 +893,8 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
       countQueries.push(Query.equal("subCategory", subcategory.trim()));
     }
 
+    console.log("[getPosts] Final queries:", queries);
+
     const [postsRes, totalRes] = await Promise.all([
       databases.listDocuments(
         process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
@@ -899,6 +908,23 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
       ),
     ]);
 
+    console.log("[getPosts] Result: total =", totalRes.total, ", documents returned =", postsRes.documents.length);
+    
+    // Log first document to check field names
+    if (postsRes.documents.length > 0) {
+      const firstDoc = postsRes.documents[0];
+      console.log("[getPosts] First document fields:", {
+        id: firstDoc.$id,
+        locationState: firstDoc.locationState,
+        locationCity: firstDoc.locationCity,
+        locationAddress: firstDoc.locationAddress,
+        hasLocationState: 'locationState' in firstDoc,
+        hasLocationCity: 'locationCity' in firstDoc,
+      });
+    } else {
+      console.log("[getPosts] No documents found. Check if locationState/locationCity fields exist in posts table.");
+    }
+
     return {
       posts: postsRes.documents as unknown as Post[],
       total: totalRes.total,
@@ -906,7 +932,7 @@ export async function getPosts(params: PostListParams = {}): Promise<PostListRes
       totalPages: Math.ceil(totalRes.total / limit),
     };
   } catch (error) {
-    console.error("Error fetching posts:", error);
+    console.error("[getPosts] Error fetching posts:", error);
     throw error;
   }
 }
