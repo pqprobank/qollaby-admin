@@ -2090,10 +2090,10 @@ export type AdSlot = typeof AD_SLOTS[number];
 /**
  * Slots that can be used up to 3 times
  */
-export const MULTI_USE_SLOTS = [5, 8, 15, 25, 35, 45, 55, 65] as const;
+export const MULTI_USE_SLOTS = [] as const;
 
 /**
- * Slots that can only be used once
+ * Slots that can only be used once (all slots are now single-use)
  */
 export const SINGLE_USE_SLOTS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110] as const;
 
@@ -2101,9 +2101,7 @@ export const SINGLE_USE_SLOTS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110
  * Get max usage count for a slot
  */
 export function getSlotMaxUsage(slot: number): number {
-  if ((MULTI_USE_SLOTS as readonly number[]).includes(slot)) {
-    return 3;
-  }
+  // All slots are now single-use (max 1 ad per slot)
   return 1;
 }
 

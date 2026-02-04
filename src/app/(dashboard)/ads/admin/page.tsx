@@ -9,11 +9,9 @@ import {
   updateSponsorAd,
   deleteSponsorAd,
   getSlotUsageCounts,
-  getSlotMaxUsage,
   isSlotAvailable,
   getSlotRemainingUsage,
   AD_SLOTS,
-  MULTI_USE_SLOTS,
   AdSlot,
   SponsorAd,
   SlotUsageInfo,
@@ -516,9 +514,7 @@ export default function AdminAdsPage() {
             Ad Slots
           </CardTitle>
           <p className="text-sm text-emerald-300/70">
-            Click on a slot to view/manage ads.
-            <span className="text-amber-400 ml-2">●</span> Multi-use (×3)
-            <span className="text-emerald-400 ml-2">●</span> Single-use (×1)
+            Click on a slot to view/manage ads. Each slot can have 1 ad.
           </p>
         </CardHeader>
         <CardContent>
@@ -533,8 +529,6 @@ export default function AdminAdsPage() {
               {AD_SLOTS.map((displaySlot) => {
                 const storedSlot = displaySlot - 1;
                 const adsInSlot = adminAdsBySlot.get(storedSlot) || [];
-                const maxUsage = getSlotMaxUsage(displaySlot);
-                const isMultiUse = (MULTI_USE_SLOTS as readonly number[]).includes(displaySlot);
                 const hasAds = adsInSlot.length > 0;
 
                 return (
@@ -545,31 +539,22 @@ export default function AdminAdsPage() {
                   >
                     {hasAds ? (
                       <div className="relative w-full h-full">
-                        {adsInSlot.slice(0, 3).map((ad, idx) => {
+                        {adsInSlot.slice(0, 1).map((ad) => {
                           const firstMedia = ad.media?.[0] || ad.image || "";
                           const mediaUrl = isVideoUrl(firstMedia) 
                             ? getVideoUrl(firstMedia) 
                             : getImageUrl(firstMedia, 200, 200);
-                          const offset = idx * 4;
-                          const rotation = (idx - 1) * 3;
                           
                           return (
                             <div
                               key={ad.$id}
                               className="absolute inset-0 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg transition-transform group-hover:shadow-xl"
-                              style={{
-                                transform: `translateX(${offset}px) translateY(${offset}px) rotate(${rotation}deg)`,
-                                zIndex: adsInSlot.length - idx,
-                              }}
                             >
                               <img
                                 src={mediaUrl}
                                 alt=""
                                 className="w-full h-full object-cover"
                               />
-                              {idx > 0 && (
-                                <div className="absolute inset-0 bg-black/20" />
-                              )}
                             </div>
                           );
                         })}
@@ -577,23 +562,10 @@ export default function AdminAdsPage() {
                         <div className="absolute top-1 left-1 z-10 px-1.5 py-0.5 rounded bg-black/70 text-white text-xs font-bold shadow">
                           {displaySlot}
                         </div>
-                        
-                        <div className="absolute bottom-1 right-1 z-10 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold shadow">
-                          {adsInSlot.length}/{maxUsage}
-                        </div>
                       </div>
                     ) : (
-                      <div className={`
-                        w-full h-full rounded-lg border-2 border-dashed
-                        flex flex-col items-center justify-center gap-1
-                        transition-colors
-                        ${isMultiUse
-                          ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20"
-                          : "border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400 hover:bg-slate-500/20"
-                        }
-                      `}>
+                      <div className="w-full h-full rounded-lg border-2 border-dashed border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400 hover:bg-slate-500/20 flex flex-col items-center justify-center gap-1 transition-colors">
                         <span className="text-2xl sm:text-3xl font-bold">{displaySlot}</span>
-                        <span className="text-[10px] opacity-70">×{maxUsage}</span>
                       </div>
                     )}
                   </button>
@@ -613,18 +585,14 @@ export default function AdminAdsPage() {
               Slot #{selectedSlotForDetail}
             </DialogTitle>
             <DialogDescription>
-              {selectedSlotForDetail && (MULTI_USE_SLOTS as readonly number[]).includes(selectedSlotForDetail)
-                ? `Multi-use slot (up to 3 ads)`
-                : `Single-use slot`
-              }
+              Single-use slot
             </DialogDescription>
           </DialogHeader>
           
           {selectedSlotForDetail && (() => {
             const storedSlot = selectedSlotForDetail - 1;
             const adsInSlot = adminAdsBySlot.get(storedSlot) || [];
-            const maxUsage = getSlotMaxUsage(selectedSlotForDetail);
-            const canAddMore = adsInSlot.length < maxUsage;
+            const canAddMore = adsInSlot.length === 0;
 
             return (
               <div className="space-y-4">
@@ -688,7 +656,7 @@ export default function AdminAdsPage() {
                     className="w-full"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Ad ({maxUsage - adsInSlot.length} remaining)
+                    Add Ad
                   </Button>
                 )}
               </div>
@@ -938,10 +906,7 @@ export default function AdminAdsPage() {
                   <div>
                     <p className="font-medium">Slot #{createForm.slot}</p>
                     <p className="text-sm text-muted-foreground">
-                      {(MULTI_USE_SLOTS as readonly number[]).includes(createForm.slot) 
-                        ? `Multi-use slot (up to 3 ads)`
-                        : `Single-use slot`
-                      }
+                      Single-use slot
                     </p>
                   </div>
                 </div>
@@ -1087,9 +1052,8 @@ export default function AdminAdsPage() {
               <div className="grid grid-cols-5 gap-2">
                 {AD_SLOTS.map((slot) => {
                   const currentUsage = editSlotUsageCounts[slot] || 0;
-                  const maxUsage = getSlotMaxUsage(slot);
                   const isCurrentSlot = editForm.slot === slot;
-                  const canSelect = currentUsage < maxUsage || isCurrentSlot;
+                  const canSelect = currentUsage === 0 || isCurrentSlot;
 
                   return (
                     <button
@@ -1108,7 +1072,9 @@ export default function AdminAdsPage() {
                       `}
                     >
                       <span className="font-bold">{slot}</span>
-                      <span className="block text-[10px] opacity-70">{currentUsage}/{maxUsage}</span>
+                      {currentUsage > 0 && !isCurrentSlot && (
+                        <span className="block text-[10px] opacity-70">已占用</span>
+                      )}
                     </button>
                   );
                 })}
