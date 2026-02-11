@@ -6,7 +6,7 @@ import {
   ConversionRateData,
   ConversionRateItem,
 } from "@/lib/user-actions";
-import { getCategoryLabel, getSubCategoryLabel } from "@/lib/categories";
+import { getAllCategories, getCategoryLabel, getSubCategoryLabel, Category } from "@/lib/category-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
 export default function ConversionsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ConversionRateData | null>(null);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -40,6 +41,7 @@ export default function ConversionsPage() {
 
   useEffect(() => {
     fetchData();
+    getAllCategories().then(setAllCategories);
   }, [fetchData]);
 
   // Calculate overall stats
@@ -167,7 +169,7 @@ export default function ConversionsPage() {
             <ConversionTable
               items={data?.byCategory || []}
               loading={loading}
-              labelFormatter={(name) => getCategoryLabel(name)}
+              labelFormatter={(name) => getCategoryLabel(allCategories, name)}
             />
           </CardContent>
         </Card>
@@ -185,7 +187,7 @@ export default function ConversionsPage() {
               items={data?.bySubcategory || []}
               loading={loading}
               labelFormatter={(name) => {
-                const label = getSubCategoryLabel("", name);
+                const label = getSubCategoryLabel(allCategories, name);
                 return label !== name ? label : name.replace(/-/g, " ");
               }}
             />

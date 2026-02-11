@@ -14,8 +14,7 @@ import {
 import { Profile } from "@/types/profile.types";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCategoryLabel, getSubCategoryLabel } from "@/lib/categories";
-import { getSlotLabel } from "@/lib/category-actions";
+import { getAllCategories, getCategoryLabel, getSubCategoryLabel, getSlotLabel, Category } from "@/lib/category-actions";
 import { MediaCarousel } from "@/components/ui/media-carousel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -66,6 +65,7 @@ export default function AdDetailPage() {
   const [likeCount, setLikeCount] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [blacklistDialog, setBlacklistDialog] = useState(false);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
 
   const fetchAd = useCallback(async () => {
     setLoading(true);
@@ -93,6 +93,7 @@ export default function AdDetailPage() {
     if (adId) {
       fetchAd();
     }
+    getAllCategories().then(setAllCategories);
   }, [adId, fetchAd]);
 
   const handleBlacklist = async () => {
@@ -167,9 +168,9 @@ export default function AdDetailPage() {
   const videoCount = processedMedia.filter((m) => m.isVideo).length;
   const imageCount = processedMedia.filter((m) => !m.isVideo).length;
 
-  const categoryLabel = getCategoryLabel(ad.category);
+  const categoryLabel = getCategoryLabel(allCategories, ad.category);
   const subCategoryLabel = ad.subcategory
-    ? getSubCategoryLabel(ad.category, ad.subcategory)
+    ? getSubCategoryLabel(allCategories, ad.subcategory)
     : null;
 
   const formatDate = (dateStr: string) => {

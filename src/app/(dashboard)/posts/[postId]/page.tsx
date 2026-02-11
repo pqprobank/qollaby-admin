@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MediaCarousel } from "@/components/ui/media-carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
-import { getCategoryLabel, getSubCategoryLabel } from "@/lib/categories";
+import { getAllCategories, getCategoryLabel, getSubCategoryLabel, Category } from "@/lib/category-actions";
 import {
   blacklistPost,
   getPostById,
@@ -68,6 +68,7 @@ export default function PostDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [blacklistDialog, setBlacklistDialog] = useState(false);
   const [reportsExpanded, setReportsExpanded] = useState(false);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
 
   const fetchPost = useCallback(async () => {
     setLoading(true);
@@ -101,6 +102,7 @@ export default function PostDetailPage() {
     if (postId) {
       fetchPost();
     }
+    getAllCategories().then(setAllCategories);
   }, [postId, fetchPost]);
 
   const handleBlacklist = async () => {
@@ -169,8 +171,8 @@ export default function PostDetailPage() {
   const imageCount = processedMedia.filter((m) => !m.isVideo).length;
 
   // Format category labels
-  const categoryLabel = getCategoryLabel(post.category);
-  const subCategoryLabel = getSubCategoryLabel(post.category, post.subCategory);
+  const categoryLabel = getCategoryLabel(allCategories, post.category);
+  const subCategoryLabel = getSubCategoryLabel(allCategories, post.subCategory);
 
   // Format event date
   const formatEventDate = (dateStr: string | null | undefined) => {

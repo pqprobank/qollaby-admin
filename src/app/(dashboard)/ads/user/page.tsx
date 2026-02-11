@@ -10,7 +10,7 @@ import {
   SponsorAdStatus,
 } from "@/lib/user-actions";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
-import { categories } from "@/lib/categories";
+import { getCategories, getSubcategories, Category } from "@/lib/category-actions";
 import { getStates, getLocationsByState, Location } from "@/lib/location-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +56,10 @@ export default function UserAdsPage() {
   const [filterStates, setFilterStates] = useState<string[]>([]);
   const [filterCities, setFilterCities] = useState<Location[]>([]);
   const [loadingFilterCities, setLoadingFilterCities] = useState(false);
+
+  // Dynamic categories
+  const [dynamicCategories, setDynamicCategories] = useState<Category[]>([]);
+  const [filterSubcategoriesList, setFilterSubcategoriesList] = useState<Category[]>([]);
 
   const fetchAds = useCallback(async () => {
     setLoading(true);
@@ -103,9 +107,10 @@ export default function UserAdsPage() {
     setPage(1);
   }, [search, statusFilter, stateFilter, cityFilter, categoryFilter, subcategoryFilter]);
 
-  // Load filter states on mount
+  // Load filter states and categories on mount
   useEffect(() => {
     getStates().then(setFilterStates);
+    getCategories().then(setDynamicCategories);
   }, []);
 
   // Load filter cities when state filter changes
@@ -122,14 +127,15 @@ export default function UserAdsPage() {
     }
   }, [stateFilter]);
 
-  // Reset subcategory filter when category filter changes
+  // Reset subcategory filter and fetch subcategories when category filter changes
   useEffect(() => {
     setSubcategoryFilter("");
+    if (categoryFilter) {
+      getSubcategories(categoryFilter).then(setFilterSubcategoriesList);
+    } else {
+      setFilterSubcategoriesList([]);
+    }
   }, [categoryFilter]);
-
-  // Get filter subcategories for selected category
-  const filterSelectedCategory = categories.find((c) => c.value === categoryFilter);
-  const filterSubcategories = filterSelectedCategory?.subCategories || [];
 
   // Count active filters
   const activeFilterCount = [stateFilter, cityFilter, categoryFilter, subcategoryFilter].filter(Boolean).length;
@@ -297,8 +303,8 @@ export default function UserAdsPage() {
                 className="h-9 px-3 rounded-md border border-border/50 bg-input/50 text-sm"
               >
                 <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                {dynamicCategories.map((cat) => (
+                  <option key={cat.value} value={cat.value}>{cat.name}</option>
                 ))}
               </select>
               <select
@@ -308,8 +314,8 @@ export default function UserAdsPage() {
                 className="h-9 px-3 rounded-md border border-border/50 bg-input/50 text-sm disabled:opacity-50"
               >
                 <option value="">All Subcategories</option>
-                {filterSubcategories.map((sub) => (
-                  <option key={sub.value} value={sub.value}>{sub.label}</option>
+                {filterSubcategoriesList.map((sub) => (
+                  <option key={sub.value} value={sub.value}>{sub.name}</option>
                 ))}
               </select>
               {activeFilterCount > 0 && (

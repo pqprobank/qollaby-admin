@@ -268,6 +268,24 @@ export const createCategory = async (
   }
 };
 
+/**
+ * Get category label from a pre-fetched categories list
+ */
+export function getCategoryLabel(allCategories: Category[], value: string | null | undefined): string {
+  if (!value) return "N/A";
+  const category = allCategories.find((c) => c.value === value && c.type === "category");
+  return category?.name || value;
+}
+
+/**
+ * Get subcategory label from a pre-fetched categories list
+ */
+export function getSubCategoryLabel(allCategories: Category[], subCategoryValue: string | null | undefined): string {
+  if (!subCategoryValue) return "N/A";
+  const subcategory = allCategories.find((c) => c.value === subCategoryValue && c.type === "subcategory");
+  return subcategory?.name || subCategoryValue;
+}
+
 // ============ Sponsor Ads Related ============
 
 export interface SponsorAd {

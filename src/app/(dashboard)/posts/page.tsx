@@ -21,7 +21,7 @@ import {
   ExchangeListingListResult,
 } from "@/lib/user-actions";
 import { getStates, getLocationsByState, Location } from "@/lib/location-actions";
-import { categories } from "@/lib/categories";
+import { getCategories, getSubcategories, Category } from "@/lib/category-actions";
 import { getStateFullName } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -81,6 +81,10 @@ export default function PostsPage() {
   // Category filters
   const [categoryFilter, setCategoryFilter] = useState("");
   const [subcategoryFilter, setSubcategoryFilter] = useState("");
+  
+  // Dynamic categories
+  const [dynamicCategories, setDynamicCategories] = useState<Category[]>([]);
+  const [subcategoriesList, setSubcategoriesList] = useState<Category[]>([]);
   
   // Filters are always shown
 
@@ -211,9 +215,10 @@ export default function PostsPage() {
     setPage(1);
   }, [search, typeFilter, stateFilter, cityFilter, categoryFilter, subcategoryFilter]);
 
-  // Load states on mount
+  // Load states and categories on mount
   useEffect(() => {
     getStates().then(setStates);
+    getCategories().then(setDynamicCategories);
   }, []);
 
   // Load cities when state changes
@@ -230,14 +235,15 @@ export default function PostsPage() {
     }
   }, [stateFilter]);
 
-  // Reset subcategory when category changes
+  // Reset subcategory and fetch subcategories when category changes
   useEffect(() => {
     setSubcategoryFilter("");
+    if (categoryFilter) {
+      getSubcategories(categoryFilter).then(setSubcategoriesList);
+    } else {
+      setSubcategoriesList([]);
+    }
   }, [categoryFilter]);
-
-  // Get subcategories for selected category
-  const selectedCategory = categories.find((c) => c.value === categoryFilter);
-  const subcategories = selectedCategory?.subCategories || [];
 
   // Count active filters (include radius if set)
   const activeFilterCount = [stateFilter, cityFilter, categoryFilter, subcategoryFilter].filter(Boolean).length + (searchRadius > 0 ? 1 : 0);
@@ -450,8 +456,8 @@ export default function PostsPage() {
                     className="w-full h-9 px-3 rounded-md border border-border/50 bg-input/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="">All Categories</option>
-                    {categories.map((cat) => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    {dynamicCategories.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
@@ -466,8 +472,8 @@ export default function PostsPage() {
                     className="w-full h-9 px-3 rounded-md border border-border/50 bg-input/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">All Subcategories</option>
-                    {subcategories.map((sub) => (
-                      <option key={sub.value} value={sub.value}>{sub.label}</option>
+                    {subcategoriesList.map((sub) => (
+                      <option key={sub.value} value={sub.value}>{sub.name}</option>
                     ))}
                   </select>
                 </div>

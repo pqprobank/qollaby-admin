@@ -123,7 +123,7 @@ export const Collections = {
   POSTS: "posts",
   POST_LIKES: "post_likes",
   POST_STAMPS: "post_stamps",
-  FOLLOWS: "follows",
+  LINKS: "follows",
   PLANS: "plans",
   SUBSCRIPTIONS: "subscriptions",
   SUBSCRIPTION_LOGS: "subscription_logs",

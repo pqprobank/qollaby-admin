@@ -17,7 +17,7 @@ import {
   SlotUsageInfo,
 } from "@/lib/user-actions";
 import { getImageUrl, getVideoUrl, isVideoUrl, uploadFiles } from "@/lib/appwrite";
-import { categories } from "@/lib/categories";
+import { getCategories, getSubcategories, Category } from "@/lib/category-actions";
 import { getStates, getLocationsByState, createLocation, getAllLocations, Location } from "@/lib/location-actions";
 import { getStateFullName } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -148,6 +148,11 @@ export default function AdminAdsPage() {
   const [showSlotDetailDialog, setShowSlotDetailDialog] = useState(false);
   const [selectedSlotForDetail, setSelectedSlotForDetail] = useState<AdSlot | null>(null);
 
+  // Dynamic categories
+  const [dynamicCategories, setDynamicCategories] = useState<Category[]>([]);
+  const [createSubcategories, setCreateSubcategories] = useState<Category[]>([]);
+  const [editSubcategoriesList, setEditSubcategoriesList] = useState<Category[]>([]);
+
   // Handle media file selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -196,12 +201,13 @@ export default function AdminAdsPage() {
     fetchAds();
   }, [fetchAds]);
 
-  // Load states, all locations and slot usage counts when dialog opens
+  // Load states, all locations, slot usage counts and categories when dialog opens
   useEffect(() => {
     if (showCreateDialog) {
       getStates().then(setStates);
       getAllLocations().then(setAllLocations);
       getSlotUsageCounts().then(setSlotUsageCounts);
+      getCategories().then(setDynamicCategories);
     }
   }, [showCreateDialog]);
 
@@ -222,9 +228,14 @@ export default function AdminAdsPage() {
     }
   }, [createForm.state, createForm.locationConfirmed]);
 
-  // Get subcategories for selected category
-  const selectedCategory = categories.find((c) => c.value === createForm.category);
-  const subcategories = selectedCategory?.subCategories || [];
+  // Fetch subcategories when create form category changes
+  useEffect(() => {
+    if (createForm.category) {
+      getSubcategories(createForm.category).then(setCreateSubcategories);
+    } else {
+      setCreateSubcategories([]);
+    }
+  }, [createForm.category]);
 
   // Handle confirming location
   const handleConfirmLocation = async () => {
@@ -352,11 +363,13 @@ export default function AdminAdsPage() {
   const handleOpenEditDialog = async (ad: SponsorAd) => {
     if (!ad.isAdminCreated) return;
 
-    const [statesData, usage] = await Promise.all([
+    const [statesData, usage, cats] = await Promise.all([
       getStates(),
       getSlotUsageCounts(),
+      getCategories(),
     ]);
     setEditStates(statesData);
+    setDynamicCategories(cats);
 
     const displaySlot = ad.slot !== undefined ? ad.slot + 1 : null;
     if (displaySlot && usage[displaySlot]) {
@@ -395,8 +408,14 @@ export default function AdminAdsPage() {
     }
   }, [editForm.state, showEditDialog]);
 
-  const editSelectedCategory = categories.find((c) => c.value === editForm.category);
-  const editSubcategories = editSelectedCategory?.subCategories || [];
+  // Fetch subcategories when edit form category changes
+  useEffect(() => {
+    if (editForm.category) {
+      getSubcategories(editForm.category).then(setEditSubcategoriesList);
+    } else {
+      setEditSubcategoriesList([]);
+    }
+  }, [editForm.category]);
 
   const handleUpdateAd = async () => {
     if (!editingAd || !editForm.title || !editForm.state || !editForm.city || !editForm.category || !editForm.slot) {
@@ -891,8 +910,8 @@ export default function AdminAdsPage() {
                   className="w-full h-9 px-3 rounded-md bg-input/50 border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  {dynamicCategories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -908,8 +927,8 @@ export default function AdminAdsPage() {
                   className="w-full h-9 px-3 rounded-md bg-input/50 border border-border/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
                 >
                   <option value="">Select subcategory</option>
-                  {subcategories.map((sub) => (
-                    <option key={sub.value} value={sub.value}>{sub.label}</option>
+                  {createSubcategories.map((sub) => (
+                    <option key={sub.value} value={sub.value}>{sub.name}</option>
                   ))}
                 </select>
               </div>
@@ -1059,8 +1078,8 @@ export default function AdminAdsPage() {
                   className="w-full h-9 px-3 rounded-md bg-input/50 border border-border/50 text-sm"
                 >
                   <option value="">Select category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
+                  {dynamicCategories.map((cat) => (
+                    <option key={cat.value} value={cat.value}>{cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -1074,8 +1093,8 @@ export default function AdminAdsPage() {
                   className="w-full h-9 px-3 rounded-md bg-input/50 border border-border/50 text-sm disabled:opacity-50"
                 >
                   <option value="">Select subcategory</option>
-                  {editSubcategories.map((sub) => (
-                    <option key={sub.value} value={sub.value}>{sub.label}</option>
+                  {editSubcategoriesList.map((sub) => (
+                    <option key={sub.value} value={sub.value}>{sub.name}</option>
                   ))}
                 </select>
               </div>

@@ -26,7 +26,7 @@ import {
   TrendingUp,
   Shield,
   Sparkles,
-  UserPlus,
+  Link2,
   ArrowRight,
   CalendarDays,
   ChevronDown,
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Last 7 Days
                 </CardTitle>
-                <UserPlus className="h-4 w-4 text-accent" />
+                <Link2 className="h-4 w-4 text-accent" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-accent">{stats.recentUsers}</div>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <UserPlus className="h-6 w-6 text-primary" />
+              <Link2 className="h-6 w-6 text-primary" />
               User Registration Analytics
             </h2>
             <p className="text-muted-foreground text-sm mt-1">
@@ -521,7 +521,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Daily Registrations
               </CardTitle>
-              <UserPlus className="h-5 w-5 text-emerald-500" />
+              <Link2 className="h-5 w-5 text-emerald-500" />
             </CardHeader>
             <CardContent>
               {statsLoading ? (

@@ -16,7 +16,7 @@ import {
   BusinessProfileListItem,
   UserFilterOptions,
 } from "@/lib/user-actions";
-import { getCategoryLabel } from "@/lib/categories";
+import { getAllCategories, getCategoryLabel, Category } from "@/lib/category-actions";
 import { getStateFullName } from "@/lib/utils";
 import { Profile, UserRole, UserSubscriptionInfo } from "@/types/profile.types";
 import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
@@ -55,7 +55,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   Shield,
-  UserPlus,
+  Link2,
   Search,
   MoreHorizontal,
   Eye,
@@ -92,6 +92,7 @@ export default function UsersPage() {
   const [selectedLocation, setSelectedLocation] = useState<PlaceValue | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [filterOptions, setFilterOptions] = useState<UserFilterOptions>({ states: [], cities: [], categories: [] });
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [usersSubscription, setUsersSubscription] = useState<Map<string, UserSubscriptionInfo>>(new Map());
   const [usersBusinessProfiles, setUsersBusinessProfiles] = useState<Map<string, BusinessProfileListItem>>(new Map());
@@ -176,6 +177,7 @@ export default function UsersPage() {
     fetchStats();
     fetchPlans();
     fetchFilterOptions();
+    getAllCategories().then(setAllCategories);
   }, [fetchStats, fetchPlans, fetchFilterOptions]);
 
   // Reset page when filters change
@@ -302,7 +304,7 @@ export default function UsersPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Last 7 Days
             </CardTitle>
-            <UserPlus className="h-4 w-4 text-accent" />
+            <Link2 className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-accent">{stats.recentUsers}</div>
@@ -471,7 +473,7 @@ export default function UsersPage() {
                     variant="outline" 
                     className="w-full justify-between bg-input/50 border-border/50"
                   >
-                    {categoryFilter ? getCategoryLabel(categoryFilter) : "All Categories"}
+                    {categoryFilter ? getCategoryLabel(allCategories, categoryFilter) : "All Categories"}
                     <ChevronDown className="h-4 w-4 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -488,7 +490,7 @@ export default function UsersPage() {
                       className="cursor-pointer"
                     >
                       {categoryFilter === cat && <Check className="h-4 w-4 mr-2" />}
-                      <span className={categoryFilter !== cat ? "ml-6" : ""}>{getCategoryLabel(cat)}</span>
+                      <span className={categoryFilter !== cat ? "ml-6" : ""}>{getCategoryLabel(allCategories, cat)}</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -552,7 +554,7 @@ export default function UsersPage() {
               )}
               {categoryFilter && (
                 <Badge variant="secondary" className="gap-1">
-                  Category: {getCategoryLabel(categoryFilter)}
+                  Category: {getCategoryLabel(allCategories, categoryFilter)}
                   <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter("")} />
                 </Badge>
               )}

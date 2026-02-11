@@ -763,6 +763,7 @@ export interface ExchangeListing {
   locationCity: string;
   locationId?: string;
   startingPrice?: number | null;
+  maxPrice?: number | null;
   currentBid?: number | null;
   auctionEndDate?: string | null;
   status: string;
