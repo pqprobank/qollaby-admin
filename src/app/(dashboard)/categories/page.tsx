@@ -521,9 +521,9 @@ export default function CategoriesPage() {
                             <div>
                               <p className="font-medium">{category.name}</p>
                               <div className="flex items-center gap-2">
-                                <p className="text-xs text-muted-foreground">
-                                  {subcategories.length} subcategories
-                                </p>
+                              <p className="text-xs text-muted-foreground">
+                                {subcategories.length} subcategories
+                              </p>
                                 {category.icon && category.icon !== "-" && (
                                   <span className="text-xs text-muted-foreground/60 font-mono">
                                     {category.icon}

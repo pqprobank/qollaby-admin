@@ -1,64 +1,62 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
-  getSponsorAdStats,
-  getAdminAdsBySlot,
-  createSponsorAd,
-  updateSponsorAd,
-  deleteSponsorAd,
-  getSlotUsageCounts,
-  isSlotAvailable,
-  getSlotRemainingUsage,
-  AD_SLOTS,
-  AdSlot,
-  SponsorAd,
-  SlotUsageInfo,
-} from "@/lib/user-actions";
-import { getImageUrl, getVideoUrl, isVideoUrl, uploadFiles } from "@/lib/appwrite";
-import { getCategories, getSubcategories, Category } from "@/lib/category-actions";
-import { getStates, getLocationsByState, createLocation, getAllLocations, Location } from "@/lib/location-actions";
-import { getStateFullName } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/contexts/AuthContext";
+import { getImageUrl, getVideoUrl, isVideoUrl, uploadFiles } from "@/lib/appwrite";
+import { Category, getCategories, getSubcategories } from "@/lib/category-actions";
+import { createLocation, getAllLocations, getLocationsByState, getStates, Location } from "@/lib/location-actions";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+    AD_SLOTS,
+    AdSlot,
+    createSponsorAd,
+    deleteSponsorAd,
+    getAdminAdsBySlot,
+    getSlotUsageCounts,
+    getSponsorAdStats,
+    SlotUsageInfo,
+    SponsorAd,
+    updateSponsorAd
+} from "@/lib/user-actions";
+import { getStateFullName } from "@/lib/utils";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Megaphone,
-  RefreshCw,
-  CheckCircle,
-  Clock,
-  XCircle,
-  Plus,
-  Upload,
-  Loader2,
-  Shield,
-  Edit2,
-  Trash2,
-  Play,
+    CheckCircle,
+    Clock,
+    Edit2,
+    Loader2,
+    Megaphone,
+    Play,
+    Plus,
+    RefreshCw,
+    Shield,
+    Trash2,
+    Upload,
+    XCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface CreateAdForm {
   title: string;
