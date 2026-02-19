@@ -69,6 +69,8 @@ interface CreateAdForm {
   slot: AdSlot | null;
   mediaFiles: File[];
   mediaPreviews: string[];
+  phoneNumber: string;
+  website: string;
 }
 
 const initialFormState: CreateAdForm = {
@@ -83,6 +85,8 @@ const initialFormState: CreateAdForm = {
   slot: null,
   mediaFiles: [],
   mediaPreviews: [],
+  phoneNumber: "",
+  website: "",
 };
 
 interface EditAdForm {
@@ -95,6 +99,8 @@ interface EditAdForm {
   category: string;
   subcategory: string;
   slot: AdSlot | null;
+  phoneNumber: string;
+  website: string;
 }
 
 export default function AdminAdsPage() {
@@ -124,6 +130,8 @@ export default function AdminAdsPage() {
     category: "",
     subcategory: "",
     slot: null,
+    phoneNumber: "",
+    website: "",
   });
   const [updating, setUpdating] = useState(false);
   const [editSlotUsageCounts, setEditSlotUsageCounts] = useState<SlotUsageInfo>({});
@@ -253,6 +261,8 @@ export default function AdminAdsPage() {
         category: createForm.category,
         subcategory: createForm.subcategory || undefined,
         slot: createForm.slot,
+        phoneNumber: createForm.phoneNumber || undefined,
+        website: createForm.website || undefined,
       });
       
       createForm.mediaPreviews.forEach((url) => URL.revokeObjectURL(url));
@@ -319,6 +329,8 @@ export default function AdminAdsPage() {
       category: ad.category,
       subcategory: ad.subcategory || "",
       slot: ad.slot !== undefined ? (ad.slot + 1) as AdSlot : null,
+      phoneNumber: ad.phoneNumber || "",
+      website: ad.website || "",
     });
     setShowEditDialog(true);
   };
@@ -369,6 +381,8 @@ export default function AdminAdsPage() {
         category: editForm.category,
         subcategory: editForm.subcategory || undefined,
         slot: editForm.slot,
+        phoneNumber: editForm.phoneNumber || undefined,
+        website: editForm.website || undefined,
       });
       setShowEditDialog(false);
       setEditingAd(null);
@@ -535,7 +549,7 @@ export default function AdminAdsPage() {
 
       {/* Slot Detail Dialog */}
       <Dialog open={showSlotDetailDialog} onOpenChange={setShowSlotDetailDialog}>
-        <DialogContent className="sm:max-w-[500px] bg-card border-border">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-emerald-400" />
@@ -564,7 +578,7 @@ export default function AdminAdsPage() {
                       : getImageUrl(firstMedia, 100, 100);
 
                     return (
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50 overflow-hidden">
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
                           {isVideoUrl(firstMedia) ? (
                             <div className="w-full h-full flex items-center justify-center bg-black/50">
@@ -574,7 +588,7 @@ export default function AdminAdsPage() {
                             <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 overflow-hidden">
                           <p className="font-medium truncate">{ad.title}</p>
                           <p className="text-xs text-muted-foreground truncate">{ad.city}, {ad.state}</p>
                         </div>
@@ -741,6 +755,36 @@ export default function AdminAdsPage() {
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, externalLink: e.target.value }))}
                 className="bg-input/50 border-border/50"
               />
+            </div>
+
+            {/* Phone Number & Website */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber" className="text-sm font-medium">
+                  Phone Number
+                </Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  placeholder="(optional)"
+                  value={createForm.phoneNumber}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
+                  className="bg-input/50 border-border/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="website" className="text-sm font-medium">
+                  Website
+                </Label>
+                <Input
+                  id="website"
+                  type="url"
+                  placeholder="https://... (optional)"
+                  value={createForm.website}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, website: e.target.value }))}
+                  className="bg-input/50 border-border/50"
+                />
+              </div>
             </div>
 
             {/* Location */}
@@ -913,6 +957,32 @@ export default function AdminAdsPage() {
               />
             </div>
 
+            {/* Phone Number & Website */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-phoneNumber">Phone Number</Label>
+                <Input
+                  id="edit-phoneNumber"
+                  type="tel"
+                  placeholder="(optional)"
+                  value={editForm.phoneNumber}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
+                  className="bg-input/50 border-border/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-website">Website</Label>
+                <Input
+                  id="edit-website"
+                  type="url"
+                  placeholder="https://..."
+                  value={editForm.website}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, website: e.target.value }))}
+                  className="bg-input/50 border-border/50"
+                />
+              </div>
+            </div>
+
             {/* Location */}
             <div className="space-y-2">
               <Label>Location</Label>
@@ -990,7 +1060,7 @@ export default function AdminAdsPage() {
                     >
                       <span className="font-bold">{slot}</span>
                       {currentUsage > 0 && !isCurrentSlot && (
-                        <span className="block text-[10px] opacity-70">已占用</span>
+                        <span className="block text-[10px] opacity-70">Occupied</span>
                       )}
                     </button>
                   );

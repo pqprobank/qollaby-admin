@@ -52,6 +52,8 @@ import {
   ExternalLink,
   TrendingUp,
   Shield,
+  Phone,
+  Globe,
 } from "lucide-react";
 
 export default function AdDetailPage() {
@@ -147,7 +149,7 @@ export default function AdDetailPage() {
         <AlertTriangle className="h-16 w-16 text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold mb-2">Ad Not Found</h2>
         <p className="text-muted-foreground mb-6">Could not find the advertisement</p>
-        <Button onClick={() => router.back()} variant="outline">
+        <Button onClick={() => router.push("/ads/user")} variant="outline">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Ads
         </Button>
@@ -189,7 +191,7 @@ export default function AdDetailPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => router.back()}
+            onClick={() => router.push(ad.isAdminCreated ? "/ads/admin" : "/ads/user")}
             className="bg-secondary/50 border-border/50"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -353,6 +355,32 @@ export default function AdDetailPage() {
                   >
                     <ExternalLink className="h-3 w-3" />
                     {ad.externalLink}
+                  </a>
+                </div>
+              )}
+              {ad.phoneNumber && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Phone Number</p>
+                  <a
+                    href={`tel:${ad.phoneNumber}`}
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Phone className="h-3 w-3" />
+                    {ad.phoneNumber}
+                  </a>
+                </div>
+              )}
+              {ad.website && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Website</p>
+                  <a
+                    href={ad.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Globe className="h-3 w-3" />
+                    {ad.website}
                   </a>
                 </div>
               )}

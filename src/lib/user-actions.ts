@@ -1560,6 +1560,9 @@ export interface SponsorAd {
   slot?: number;
   // Admin created ad flag
   isAdminCreated?: boolean;
+  // Contact info
+  phoneNumber?: string;
+  website?: string;
 }
 
 export interface SponsorAdListParams {
@@ -1988,6 +1991,8 @@ export interface UpdateSponsorAdInput {
   category?: string;
   subcategory?: string;
   slot?: AdSlot;
+  phoneNumber?: string;
+  website?: string;
 }
 
 export async function updateSponsorAd(
@@ -2006,6 +2011,8 @@ export async function updateSponsorAd(
     if (input.category !== undefined) updateData.category = input.category;
     if (input.subcategory !== undefined) updateData.subcategory = input.subcategory;
     if (input.slot !== undefined) updateData.slot = input.slot - 1; // Store as slot - 1
+    if (input.phoneNumber !== undefined) updateData.phoneNumber = input.phoneNumber;
+    if (input.website !== undefined) updateData.website = input.website;
 
     const doc = await databases.updateDocument(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
@@ -2085,7 +2092,7 @@ export async function getAdsLikeCounts(adIds: string[]): Promise<Map<string, num
 /**
  * Available ad slots for admin to choose from
  */
-export const AD_SLOTS = [1, 5, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110] as const;
+export const AD_SLOTS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110] as const;
 export type AdSlot = typeof AD_SLOTS[number];
 
 /**
@@ -2109,6 +2116,8 @@ export interface CreateSponsorAdInput {
   subcategory?: string;
   slot: AdSlot;
   externalLink?: string;
+  phoneNumber?: string;
+  website?: string;
 }
 
 /**
@@ -2155,6 +2164,8 @@ export async function createSponsorAd(input: CreateSponsorAdInput): Promise<Spon
         expiresAt: expiresAt.toISOString(),
         isBlacklisted: false,
         isAdminCreated: true, // Mark as admin-created ad
+        phoneNumber: input.phoneNumber || "",
+        website: input.website || "",
       }
     );
 
