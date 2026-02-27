@@ -29,11 +29,15 @@ import { getImageUrl, getVideoUrl, isVideoUrl, uploadFiles } from "@/lib/appwrit
 import { Category, getCategories, getSubcategories } from "@/lib/category-actions";
 import {
     AD_SLOTS,
+    MULTI_USE_SLOTS,
     AdSlot,
     createSponsorAd,
     deleteSponsorAd,
     getAdminAdsBySlot,
     getSlotUsageCounts,
+    getSlotMaxUsage,
+    isSlotAvailable,
+    getSlotRemainingUsage,
     getSponsorAdStats,
     SlotUsageInfo,
     SponsorAd,
@@ -107,7 +111,7 @@ export default function AdminAdsPage() {
   const router = useRouter();
   const { admin } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [adminAdsBySlot, setAdminAdsBySlot] = useState<Map<number, SponsorAd>>(new Map());
+  const [adminAdsBySlot, setAdminAdsBySlot] = useState<Map<number, SponsorAd[]>>(new Map());
   const [stats, setStats] = useState({ totalAds: 0, activeAds: 0, pendingAds: 0 });
 
   // Create Ad Dialog state
@@ -489,7 +493,9 @@ export default function AdminAdsPage() {
             Ad Slots
           </CardTitle>
           <p className="text-sm text-emerald-300/70">
-            Click on a slot to view/manage ads. Each slot can have 1 ad.
+            Click on a slot to view/manage ads.
+            <span className="text-amber-400 ml-2">●</span> Multi-use (×3)
+            <span className="text-emerald-400 ml-2">●</span> Single-use (×1)
           </p>
         </CardHeader>
         <CardContent>
@@ -503,7 +509,10 @@ export default function AdminAdsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5">
               {AD_SLOTS.map((displaySlot) => {
                 const storedSlot = displaySlot - 1;
-                const ad = adminAdsBySlot.get(storedSlot);
+                const adsInSlot = adminAdsBySlot.get(storedSlot) || [];
+                const maxUsage = getSlotMaxUsage(displaySlot);
+                const isMultiUse = (MULTI_USE_SLOTS as readonly number[]).includes(displaySlot);
+                const hasAds = adsInSlot.length > 0;
 
                 return (
                   <button
@@ -511,10 +520,11 @@ export default function AdminAdsPage() {
                     onClick={() => handleClickSlot(displaySlot)}
                     className="relative aspect-[3/4] transition-all transform hover:scale-105 hover:z-10 group"
                   >
-                    {ad ? (
+                    {hasAds ? (
                       <div className="relative w-full h-full">
                         {(() => {
-                          const firstMedia = ad.media?.[0] || ad.image || "";
+                          const firstAd = adsInSlot[0];
+                          const firstMedia = firstAd.media?.[0] || firstAd.image || "";
                           const mediaUrl = isVideoUrl(firstMedia) 
                             ? getVideoUrl(firstMedia) 
                             : getImageUrl(firstMedia, 300, 400);
@@ -533,10 +543,23 @@ export default function AdminAdsPage() {
                         <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md bg-black/70 text-white text-sm font-bold shadow">
                           {displaySlot}
                         </div>
+                        
+                        <div className="absolute bottom-1 right-1 z-10 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold shadow">
+                          {adsInSlot.length}/{maxUsage}
+                        </div>
                       </div>
                     ) : (
-                      <div className="w-full h-full rounded-xl border-2 border-dashed border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400 hover:bg-slate-500/20 flex flex-col items-center justify-center gap-1 transition-colors">
+                      <div className={`
+                        w-full h-full rounded-xl border-2 border-dashed
+                        flex flex-col items-center justify-center gap-1
+                        transition-colors
+                        ${isMultiUse
+                          ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20"
+                          : "border-slate-500/40 bg-slate-500/10 text-slate-400 hover:border-slate-400 hover:bg-slate-500/20"
+                        }
+                      `}>
                         <span className="text-3xl sm:text-4xl font-bold">{displaySlot}</span>
+                        <span className="text-[10px] opacity-70">×{maxUsage}</span>
                       </div>
                     )}
                   </button>
@@ -549,36 +572,42 @@ export default function AdminAdsPage() {
 
       {/* Slot Detail Dialog */}
       <Dialog open={showSlotDetailDialog} onOpenChange={setShowSlotDetailDialog}>
-        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-card border-border">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-hidden flex flex-col bg-card border-border">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-emerald-400" />
               Slot #{selectedSlotForDetail}
             </DialogTitle>
             <DialogDescription>
-              Single-use slot
+              {selectedSlotForDetail && (MULTI_USE_SLOTS as readonly number[]).includes(selectedSlotForDetail)
+                ? `Multi-use slot (up to 3 ads)`
+                : `Single-use slot`
+              }
             </DialogDescription>
           </DialogHeader>
           
+          <div className="flex-1 overflow-y-auto min-h-0">
           {selectedSlotForDetail && (() => {
             const storedSlot = selectedSlotForDetail - 1;
-            const ad = adminAdsBySlot.get(storedSlot);
+            const adsInSlot = adminAdsBySlot.get(storedSlot) || [];
+            const maxUsage = getSlotMaxUsage(selectedSlotForDetail);
+            const canAddMore = adsInSlot.length < maxUsage;
 
             return (
               <div className="space-y-4">
-                {!ad ? (
+                {adsInSlot.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>No ads in this slot</p>
                   </div>
                 ) : (
-                  (() => {
+                  adsInSlot.map((ad) => {
                     const firstMedia = ad.media?.[0] || ad.image || "";
                     const mediaUrl = isVideoUrl(firstMedia)
                       ? getVideoUrl(firstMedia)
                       : getImageUrl(firstMedia, 100, 100);
 
                     return (
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
+                      <div key={ad.$id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
                         <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
                           {isVideoUrl(firstMedia) ? (
                             <div className="w-full h-full flex items-center justify-center bg-black/50">
@@ -612,10 +641,10 @@ export default function AdminAdsPage() {
                         </div>
                       </div>
                     );
-                  })()
+                  })
                 )}
 
-                {!ad && (
+                {canAddMore && (
                   <Button
                     onClick={() => {
                       setShowSlotDetailDialog(false);
@@ -624,12 +653,13 @@ export default function AdminAdsPage() {
                     className="w-full"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Ad
+                    Add Ad ({maxUsage - adsInSlot.length} remaining)
                   </Button>
                 )}
               </div>
             );
           })()}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -856,7 +886,10 @@ export default function AdminAdsPage() {
                   <div>
                     <p className="font-medium">Slot #{createForm.slot}</p>
                     <p className="text-sm text-muted-foreground">
-                      Single-use slot
+                      {(MULTI_USE_SLOTS as readonly number[]).includes(createForm.slot) 
+                        ? `Multi-use slot (up to 3 ads)`
+                        : `Single-use slot`
+                      }
                     </p>
                   </div>
                 </div>
@@ -1039,8 +1072,9 @@ export default function AdminAdsPage() {
               <div className="grid grid-cols-5 gap-2">
                 {AD_SLOTS.map((slot) => {
                   const currentUsage = editSlotUsageCounts[slot] || 0;
+                  const maxUsage = getSlotMaxUsage(slot);
                   const isCurrentSlot = editForm.slot === slot;
-                  const canSelect = currentUsage === 0 || isCurrentSlot;
+                  const canSelect = currentUsage < maxUsage || isCurrentSlot;
 
                   return (
                     <button
@@ -1059,9 +1093,7 @@ export default function AdminAdsPage() {
                       `}
                     >
                       <span className="font-bold">{slot}</span>
-                      {currentUsage > 0 && !isCurrentSlot && (
-                        <span className="block text-[10px] opacity-70">Occupied</span>
-                      )}
+                      <span className="block text-[10px] opacity-70">{currentUsage}/{maxUsage}</span>
                     </button>
                   );
                 })}

@@ -1587,11 +1587,10 @@ export interface SponsorAdListResult {
 /**
  * Get all admin-created ads organized by slot (one ad per slot, keeps the latest)
  */
-export async function getAdminAdsBySlot(): Promise<Map<number, SponsorAd>> {
+export async function getAdminAdsBySlot(): Promise<Map<number, SponsorAd[]>> {
   try {
     const queries: string[] = [
       Query.equal("isAdminCreated", true),
-      Query.orderDesc("$createdAt"),
       Query.limit(500),
     ];
 
@@ -1601,12 +1600,14 @@ export async function getAdminAdsBySlot(): Promise<Map<number, SponsorAd>> {
       queries
     );
 
-    const adsBySlot = new Map<number, SponsorAd>();
+    const adsBySlot = new Map<number, SponsorAd[]>();
     for (const doc of adsRes.documents) {
       const ad = doc as unknown as SponsorAd;
       const storedSlot = ad.slot;
-      if (storedSlot !== undefined && storedSlot !== null && !adsBySlot.has(storedSlot)) {
-        adsBySlot.set(storedSlot, ad);
+      if (storedSlot !== undefined && storedSlot !== null) {
+        const existing = adsBySlot.get(storedSlot) || [];
+        existing.push(ad);
+        adsBySlot.set(storedSlot, existing);
       }
     }
 
@@ -2092,13 +2093,26 @@ export async function getAdsLikeCounts(adIds: string[]): Promise<Map<string, num
 /**
  * Available ad slots for admin to choose from
  */
-export const AD_SLOTS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110] as const;
+export const AD_SLOTS = [1, 5, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110] as const;
 export type AdSlot = typeof AD_SLOTS[number];
 
 /**
- * Each slot allows exactly 1 ad.
+ * Slots that can be used up to 3 times
  */
-export function getSlotMaxUsage(_slot: number): number {
+export const MULTI_USE_SLOTS = [5, 8, 15, 25, 35, 45, 55, 65] as const;
+
+/**
+ * Slots that can only be used once
+ */
+export const SINGLE_USE_SLOTS = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110] as const;
+
+/**
+ * Get max usage count for a slot
+ */
+export function getSlotMaxUsage(slot: number): number {
+  if ((MULTI_USE_SLOTS as readonly number[]).includes(slot)) {
+    return 3;
+  }
   return 1;
 }
 
@@ -2127,17 +2141,18 @@ export interface CreateSponsorAdInput {
 export async function createSponsorAd(input: CreateSponsorAdInput): Promise<SponsorAd> {
   try {
     const storedSlot = input.slot - 1;
+    const maxUsage = getSlotMaxUsage(input.slot);
     const existing = await databases.listDocuments(
       process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
       Collections.SPONSOR_ADS,
       [
         Query.equal("isAdminCreated", true),
         Query.equal("slot", storedSlot),
-        Query.limit(1),
+        Query.limit(maxUsage + 1),
       ]
     );
-    if (existing.total > 0) {
-      throw new Error(`Slot ${input.slot} is already occupied`);
+    if (existing.total >= maxUsage) {
+      throw new Error(`Slot ${input.slot} is already full (max ${maxUsage})`);
     }
 
     const expiresAt = new Date();
