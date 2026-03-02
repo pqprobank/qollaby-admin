@@ -1018,6 +1018,19 @@ export default function AdminAdsPage() {
             <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={updating}>
               Cancel
             </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (editingAd) {
+                  setShowEditDialog(false);
+                  handleOpenDeleteDialog(editingAd);
+                }
+              }}
+              disabled={updating}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
             <Button onClick={handleUpdateAd} disabled={updating}>
               {updating ? (
                 <>
