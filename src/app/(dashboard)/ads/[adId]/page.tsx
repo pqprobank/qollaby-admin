@@ -197,7 +197,10 @@ export default function AdDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Ad Details</h1>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Megaphone className="h-6 w-6 text-primary shrink-0" />
+              Ad Details
+            </h1>
             <p className="text-muted-foreground">View and manage advertisement</p>
           </div>
         </div>

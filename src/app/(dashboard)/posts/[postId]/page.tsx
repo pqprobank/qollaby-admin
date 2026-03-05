@@ -210,9 +210,12 @@ export default function PostDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Post Details</h1>
-            <p className="text-muted-foreground">View post information and manage reports</p>
-          </div>
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <FileText className="h-6 w-6 text-primary shrink-0" />
+            Post Details
+          </h1>
+          <p className="text-muted-foreground">View post information and manage reports</p>
+        </div>
         </div>
         <div className="flex items-center gap-2">
           <Button

@@ -14,6 +14,7 @@ import {
 } from "@/lib/user-actions";
 import { Profile } from "@/types/profile.types";
 import { getImageUrl, isVideoUrl } from "@/lib/appwrite";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -152,20 +153,21 @@ export default function AppealsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Appeals</h1>
-          <p className="text-muted-foreground mt-1">Review user appeals for blocked posts</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={fetchAppeals}
-          className="bg-secondary/50 border-border/50"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Appeals"
+        description="Review user appeals for blocked posts"
+        icon={MessageSquare}
+        children={
+          <Button
+            variant="outline"
+            onClick={fetchAppeals}
+            className="bg-secondary/50 border-border/50"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">

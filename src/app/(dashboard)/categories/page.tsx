@@ -11,6 +11,7 @@ import {
   Category,
   CategoryUsageStats,
 } from "@/lib/category-actions";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -348,22 +349,17 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Category Management</h1>
-          <p className="text-muted-foreground">
-            Manage categories and subcategories for posts and ads
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchCategories}
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Category Management"
+        description="Manage categories and subcategories for posts and ads"
+        icon={FolderTree}
+        children={
+          <Button variant="outline" size="sm" onClick={fetchCategories}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-3">

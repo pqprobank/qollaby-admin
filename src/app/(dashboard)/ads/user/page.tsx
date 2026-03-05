@@ -13,6 +13,7 @@ import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
 import { getCategories, getSubcategories, Category } from "@/lib/category-actions";
 import { getStateFullName } from "@/lib/utils";
 import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -179,20 +180,21 @@ export default function UserAdsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">User Ads</h1>
-          <p className="text-muted-foreground mt-1">Ads created by premium users (members)</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={fetchAds}
-          className="bg-secondary/50 border-border/50"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="User Ads"
+        description="Ads created by premium users (members)"
+        icon={Megaphone}
+        children={
+          <Button
+            variant="outline"
+            onClick={fetchAds}
+            className="bg-secondary/50 border-border/50"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">

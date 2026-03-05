@@ -9,6 +9,7 @@ import {
 import { getAllCategories, getCategoryLabel, getSubCategoryLabel, Category } from "@/lib/category-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import {
   TrendingUp,
@@ -61,23 +62,22 @@ export default function ConversionsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Conversion Rate</h1>
-          <p className="text-muted-foreground mt-1">
-            Analyze ad conversion rates by different dimensions
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={fetchData}
-          disabled={loading}
-          className="bg-secondary/50 border-border/50"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Conversion Rate"
+        description="Analyze ad conversion rates by different dimensions"
+        icon={TrendingUp}
+        children={
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            disabled={loading}
+            className="bg-secondary/50 border-border/50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Overall Stats */}
       <div className="grid gap-4 md:grid-cols-4">

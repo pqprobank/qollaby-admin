@@ -8,6 +8,7 @@ import {
   ActivityTrend,
 } from "@/lib/subscription-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -115,16 +116,11 @@ export default function SubscriptionsPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <CreditCard className="h-8 w-8 text-primary" />
-            Subscriptions
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Monitor subscription metrics and revenue
-          </p>
-        </div>
+      <PageHeader
+        title="Subscriptions"
+        description="Monitor subscription metrics and revenue"
+        icon={CreditCard}
+        children={
         <div className="flex items-center gap-2 flex-wrap">
           {/* Year Selector */}
           <DropdownMenu>
@@ -226,7 +222,8 @@ export default function SubscriptionsPage() {
             Refresh
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Activity Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2">

@@ -32,6 +32,7 @@ import {
   ChevronDown,
   Check,
   RefreshCw,
+  LayoutDashboard,
 } from "lucide-react";
 
 // Date selectors
@@ -236,7 +237,8 @@ export default function DashboardPage() {
             <Sparkles className="h-5 w-5" />
             <span className="text-sm font-medium">Admin Console</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6 md:h-7 md:w-7 text-primary shrink-0" />
             Welcome back, {admin.profile.firstName}!
           </h1>
           <p className="text-muted-foreground">

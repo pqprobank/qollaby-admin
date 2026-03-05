@@ -19,6 +19,7 @@ import {
 import { getAllCategories, getCategoryLabel, Category } from "@/lib/category-actions";
 import { getStateFullName } from "@/lib/utils";
 import { Profile, UserRole, UserSubscriptionInfo } from "@/types/profile.types";
+import { PageHeader } from "@/components/ui/page-header";
 import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -256,24 +257,25 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground">Manage all registered users and admin privileges</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            fetchUsers();
-            fetchStats();
-          }}
-          className="w-fit"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="User Management"
+        description="Manage all registered users and admin privileges"
+        icon={Users}
+        children={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              fetchUsers();
+              fetchStats();
+            }}
+            className="w-fit"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-3">

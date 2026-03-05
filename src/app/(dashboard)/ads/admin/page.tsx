@@ -10,6 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -417,20 +418,21 @@ export default function AdminAdsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Admin Ads</h1>
-          <p className="text-muted-foreground mt-1">Manage admin-created sponsor advertisements</p>
-        </div>
-        <Button
-          variant="outline"
-          onClick={fetchAds}
-          className="bg-secondary/50 border-border/50"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Admin Ads"
+        description="Manage admin-created sponsor advertisements"
+        icon={Shield}
+        children={
+          <Button
+            variant="outline"
+            onClick={fetchAds}
+            className="bg-secondary/50 border-border/50"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
+import { PageHeader } from "@/components/ui/page-header";
 import { RadiusSelector } from "@/components/ui/radius-selector";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
 import { calculateDistance, formatDistance, RadiusOption } from "@/lib/geo-utils";
@@ -317,24 +318,25 @@ export default function PostsPage() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Posts</h1>
-          <p className="text-muted-foreground">View all posts and their statistics</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            fetchItems();
-            fetchStats();
-          }}
-          className="w-fit"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title="Posts"
+        description="View all posts and their statistics"
+        icon={FileText}
+        children={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              fetchItems();
+              fetchStats();
+            }}
+            className="w-fit"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-2">
