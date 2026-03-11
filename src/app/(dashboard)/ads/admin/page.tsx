@@ -420,8 +420,8 @@ export default function AdminAdsPage() {
         }
       />
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      {/* Stats Cards - Row 1 */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -461,6 +461,10 @@ export default function AdminAdsPage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Stats Cards - Row 2: Metrics */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">

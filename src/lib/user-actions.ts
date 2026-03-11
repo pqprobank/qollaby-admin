@@ -1798,6 +1798,57 @@ export async function getSponsorAdStats(isAdminCreated?: boolean): Promise<{
 }
 
 /**
+ * Get aggregated ad metrics (total views, clicks, CTR)
+ * @param isAdminCreated - undefined: all ads, true: admin ads only, false: user ads only
+ */
+export async function getAdMetrics(isAdminCreated?: boolean): Promise<{
+  totalViews: number;
+  totalClicks: number;
+  ctr: number;
+}> {
+  try {
+    const baseQueries: string[] = [];
+    if (isAdminCreated === true) {
+      baseQueries.push(Query.equal("isAdminCreated", true));
+    } else if (isAdminCreated === false) {
+      baseQueries.push(Query.or([
+        Query.isNull("isAdminCreated"),
+        Query.equal("isAdminCreated", false)
+      ]));
+    }
+
+    let totalViews = 0;
+    let totalClicks = 0;
+    const pageSize = 500;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const res = await databases.listDocuments(
+        process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+        Collections.SPONSOR_ADS,
+        [...baseQueries, Query.limit(pageSize), Query.offset(offset)]
+      );
+
+      for (const doc of res.documents) {
+        const ad = doc as unknown as SponsorAd;
+        totalViews += ad.views || 0;
+        totalClicks += ad.clicks || 0;
+      }
+
+      offset += pageSize;
+      hasMore = offset < res.total;
+    }
+
+    const ctr = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0;
+    return { totalViews, totalClicks, ctr };
+  } catch (error) {
+    console.error("Error fetching ad metrics:", error);
+    return { totalViews: 0, totalClicks: 0, ctr: 0 };
+  }
+}
+
+/**
  * Conversion rate item for a dimension group
  */
 export interface ConversionRateItem {

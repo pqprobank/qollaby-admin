@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   getSponsorAds,
   getSponsorAdStats,
+  getAdMetrics,
   getAdsLikeCounts,
   SponsorAd,
   SponsorAdStatus,
@@ -27,6 +28,7 @@ import {
   Heart,
   Eye,
   MousePointer,
+  TrendingUp,
   Ban,
   Play,
   CheckCircle,
@@ -44,6 +46,7 @@ export default function UserAdsPage() {
   const [loading, setLoading] = useState(true);
   const [ads, setAds] = useState<AdWithStats[]>([]);
   const [stats, setStats] = useState({ totalAds: 0, activeAds: 0, pendingAds: 0 });
+  const [metrics, setMetrics] = useState({ totalViews: 0, totalClicks: 0, ctr: 0 });
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -64,7 +67,7 @@ export default function UserAdsPage() {
   const fetchAds = useCallback(async () => {
     setLoading(true);
     try {
-      const [result, statsData] = await Promise.all([
+      const [result, statsData, metricsData] = await Promise.all([
         getSponsorAds({
           page,
           limit: 20,
@@ -77,6 +80,7 @@ export default function UserAdsPage() {
           isAdminCreated: false, // Only user ads
         }),
         getSponsorAdStats(false), // Only user-created ads stats
+        getAdMetrics(false), // Only user-created ads metrics
       ]);
 
       const adIds = result.ads.map((ad) => ad.$id);
@@ -91,6 +95,7 @@ export default function UserAdsPage() {
       setTotal(result.total);
       setTotalPages(result.totalPages);
       setStats(statsData);
+      setMetrics(metricsData);
     } catch (error) {
       console.error("Failed to fetch ads:", error);
     } finally {
@@ -196,7 +201,7 @@ export default function UserAdsPage() {
         }
       />
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Row 1 */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="pt-6">
@@ -233,6 +238,49 @@ export default function UserAdsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Pending Review</p>
                 <p className="text-2xl font-bold">{stats.pendingAds}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Stats Cards - Row 2: Metrics */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-blue-500/10">
+                <Eye className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Views</p>
+                <p className="text-2xl font-bold">{metrics.totalViews.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-purple-500/10">
+                <MousePointer className="h-6 w-6 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Clicks</p>
+                <p className="text-2xl font-bold">{metrics.totalClicks.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-amber-500/10">
+                <TrendingUp className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">CTR</p>
+                <p className="text-2xl font-bold">{metrics.ctr.toFixed(1)}%</p>
               </div>
             </div>
           </CardContent>
