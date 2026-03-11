@@ -50,12 +50,15 @@ import {
     CheckCircle,
     Clock,
     Edit2,
+    Eye,
     Loader2,
     Megaphone,
+    MousePointer,
     Play,
     Plus,
     RefreshCw,
     Shield,
+    TrendingUp,
     Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -385,6 +388,19 @@ export default function AdminAdsPage() {
     }
   };
 
+  const adMetrics = (() => {
+    let totalViews = 0;
+    let totalClicks = 0;
+    adminAdsBySlot.forEach((ads) => {
+      for (const ad of ads) {
+        totalViews += ad.views || 0;
+        totalClicks += ad.clicks || 0;
+      }
+    });
+    const ctr = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0;
+    return { totalViews, totalClicks, ctr };
+  })();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -405,7 +421,7 @@ export default function AdminAdsPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card className="bg-card/50 border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -439,8 +455,47 @@ export default function AdminAdsPage() {
                 <Clock className="h-6 w-6 text-yellow-500" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Pending Review</p>
+                <p className="text-sm text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold">{stats.pendingAds}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-blue-500/10">
+                <Eye className="h-6 w-6 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Views</p>
+                <p className="text-2xl font-bold">{adMetrics.totalViews.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-purple-500/10">
+                <MousePointer className="h-6 w-6 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Clicks</p>
+                <p className="text-2xl font-bold">{adMetrics.totalClicks.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/50 border-border/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-lg bg-amber-500/10">
+                <TrendingUp className="h-6 w-6 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">CTR</p>
+                <p className="text-2xl font-bold">{adMetrics.ctr.toFixed(1)}%</p>
               </div>
             </div>
           </CardContent>
@@ -525,6 +580,22 @@ export default function AdminAdsPage() {
                           })()}
                           <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md bg-black/70 text-white text-sm font-bold shadow">
                             {label}
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-2 pt-6">
+                            <div className="flex items-center justify-between text-[11px] text-white/90">
+                              <span className="flex items-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                {(ad.views || 0).toLocaleString()}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MousePointer className="h-3 w-3" />
+                                {(ad.clicks || 0).toLocaleString()}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                {(ad.views || 0) > 0 ? (((ad.clicks || 0) / (ad.views || 1)) * 100).toFixed(1) : "0.0"}%
+                              </span>
+                            </div>
                           </div>
                         </>
                       ) : (
