@@ -9,6 +9,46 @@ export interface AdminUser {
   profile: Profile;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+export async function logAuthDebug(
+  step: string,
+  details: Record<string, unknown> = {}
+): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  try {
+    await fetch("/api/debug/auth-log", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        step,
+        details,
+        href: window.location.href,
+        origin: window.location.origin,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+  } catch (error) {
+    console.error("[auth-debug] failed to send log:", error);
+  }
+}
+
 /**
  * Get current logged in user
  */
@@ -103,36 +143,83 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 export function loginWithGoogle(): void {
   const successUrl = `${window.location.origin}/auth/callback`;
   const failureUrl = `${window.location.origin}/login?error=oauth_failed`;
-  
-  account.createOAuth2Session(
-    OAuthProvider.Google,
+
+  void logAuthDebug("oauth_start", {
     successUrl,
-    failureUrl
-  );
+    failureUrl,
+  });
+
+  try {
+    account.createOAuth2Session(
+      OAuthProvider.Google,
+      successUrl,
+      failureUrl
+    );
+  } catch (error) {
+    void logAuthDebug("oauth_start_error", {
+      error: getErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 /**
  * Handle OAuth callback - verify user is admin
  */
 export async function handleOAuthCallback(): Promise<AdminUser> {
-  const user = await getCurrentUser();
-  
+  await logAuthDebug("oauth_callback_started");
+
+  let user: AuthUser | null = null;
+  try {
+    user = await getCurrentUser();
+    await logAuthDebug("oauth_account_get_result", {
+      hasUser: !!user,
+      userId: user?.$id ?? null,
+      email: user?.email ?? null,
+    });
+  } catch (error) {
+    await logAuthDebug("oauth_account_get_error", {
+      error: getErrorMessage(error),
+    });
+    throw error;
+  }
+
   if (!user) {
+    await logAuthDebug("oauth_authentication_failed", {
+      reason: "account_get_returned_null",
+    });
     throw new Error("Authentication failed");
   }
-  
+
   const profile = await getProfileByUserId(user.$id);
-  
+  await logAuthDebug("oauth_profile_result", {
+    hasProfile: !!profile,
+    profileUserId: profile?.userId ?? null,
+    role: profile?.role ?? null,
+  });
+
   if (!profile) {
+    await logAuthDebug("oauth_profile_missing", {
+      userId: user.$id,
+    });
     await logout();
     throw new Error("User profile not found");
   }
-  
+
   if (!isAdmin(profile)) {
+    await logAuthDebug("oauth_not_admin", {
+      userId: user.$id,
+      role: profile.role ?? null,
+    });
     await logout();
     throw new Error("You don't have admin privileges");
   }
-  
+
+  await logAuthDebug("oauth_success", {
+    userId: user.$id,
+    role: profile.role,
+  });
+
   return { user, profile };
 }
 

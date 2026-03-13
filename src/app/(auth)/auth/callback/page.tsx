@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAuthDebug } from "@/lib/auth";
 import { Loader2, Shield } from "lucide-react";
 
 export default function AuthCallbackPage() {
@@ -17,9 +18,15 @@ export default function AuthCallbackPage() {
 
     async function handleCallback() {
       try {
+        await logAuthDebug("oauth_callback_page_loaded", {
+          search: window.location.search,
+        });
         await completeOAuthLogin();
         router.replace("/");
-      } catch {
+      } catch (error) {
+        await logAuthDebug("oauth_callback_page_redirecting_to_login", {
+          error: error instanceof Error ? error.message : String(error),
+        });
         // Error is handled by context, redirect to login
         router.replace("/login?error=oauth_failed");
       }

@@ -15,6 +15,7 @@ export interface Category {
   icon: string;           // Ionicons icon name
   colorStart?: string;    // Gradient start color
   colorEnd?: string;      // Gradient end color
+  active?: boolean;
   order: number;
 }
 
@@ -490,10 +491,6 @@ export const getMainCategoryUsageStats = async (
   categoryValue: string
 ): Promise<CategoryUsageStats> => {
   try {
-    // Get all subcategories
-    const subcategories = await getSubcategories(categoryValue);
-    const subcategoryValues = subcategories.map((s) => s.value);
-
     // Build queries - search by category value
     const postQueries = [Query.equal("category", categoryValue), Query.limit(1)];
     const adQueries = [Query.equal("category", categoryValue), Query.limit(1)];
@@ -504,28 +501,10 @@ export const getMainCategoryUsageStats = async (
       databases.listDocuments(DATABASE_ID, Collections.SPONSOR_ADS, adQueries),
     ]);
 
-    let totalPostCount = mainPostsRes.total;
-    let totalAdCount = mainAdsRes.total;
-
-    // If there are subcategories, get their counts too
-    if (subcategoryValues.length > 0) {
-      // For posts with subcategories
-      const subPostQueries = [
-        Query.equal("category", categoryValue),
-        Query.limit(1),
-      ];
-      const subAdQueries = [
-        Query.equal("category", categoryValue),
-        Query.limit(1),
-      ];
-
-      // Note: The main query already includes items with the category,
-      // so we just return the main count which includes subcategory items
-    }
-
     return {
-      postCount: totalPostCount,
-      adCount: totalAdCount,
+      // The category query already includes records that also have a subcategory.
+      postCount: mainPostsRes.total,
+      adCount: mainAdsRes.total,
     };
   } catch (error) {
     console.error("Error fetching main category usage stats:", error);

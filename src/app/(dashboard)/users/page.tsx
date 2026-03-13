@@ -51,6 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { FilterBadge } from "@/components/ui/filter-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -537,46 +538,39 @@ export default function UsersPage() {
             <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/50">
               <span className="text-sm text-muted-foreground">Active Filters:</span>
               {search && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => setSearch("")}>
                   Search: {search}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setSearch("")} />
-                </Badge>
+                </FilterBadge>
               )}
               {roleFilter !== "all" && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => setRoleFilter("all")}>
                   Role: {roleFilter === "admin" ? "Admin" : "User"}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setRoleFilter("all")} />
-                </Badge>
+                </FilterBadge>
               )}
               {subscriptionFilter !== "all" && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => setSubscriptionFilter("all")}>
                   Plan: {subscriptionFilter === "none" ? "None" : plans.find(p => p.id === subscriptionFilter)?.name}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setSubscriptionFilter("all")} />
-                </Badge>
+                </FilterBadge>
               )}
               {hasBusinessProfileFilter !== "all" && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => setHasBusinessProfileFilter("all")}>
                   Profile: {hasBusinessProfileFilter === "yes" ? "Has" : "No"}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setHasBusinessProfileFilter("all")} />
-                </Badge>
+                </FilterBadge>
               )}
               {stateFilter && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => { setStateFilter(""); setCityFilter(""); setSelectedLocation(null); }}>
                   State: {stateFilter}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => { setStateFilter(""); setCityFilter(""); setSelectedLocation(null); }} />
-                </Badge>
+                </FilterBadge>
               )}
               {cityFilter && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => { setCityFilter(""); }}>
                   City: {cityFilter}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => { setCityFilter(""); }} />
-                </Badge>
+                </FilterBadge>
               )}
               {categoryFilter && (
-                <Badge variant="secondary" className="gap-1">
+                <FilterBadge onRemove={() => setCategoryFilter("")}>
                   Category: {getCategoryLabel(allCategories, categoryFilter)}
-                  <X className="h-3 w-3 cursor-pointer" onClick={() => setCategoryFilter("")} />
-                </Badge>
+                </FilterBadge>
               )}
             </div>
           )}

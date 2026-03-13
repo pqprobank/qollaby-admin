@@ -131,7 +131,6 @@
   font-family: inherit;
   padding: 4px 0;
   pointer-events: auto !important;
-  position: fixed !important;
 }
 
 /* Ensure pac-container and its children receive pointer events */

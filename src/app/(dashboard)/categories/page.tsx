@@ -24,6 +24,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -41,6 +47,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { FilterBadge } from "@/components/ui/filter-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import {
@@ -57,12 +65,15 @@ import {
   Plus,
   Megaphone,
   Palette,
+  Check,
+  X,
 } from "lucide-react";
 
 export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   
@@ -141,6 +152,19 @@ export default function CategoriesPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+  };
+
+  const clearAllFilters = () => {
+    setSearch("");
+    setActiveFilter("all");
+  };
+
+  const isCategoryActive = (category: Category) => category.active !== false;
+
+  const matchesActiveFilter = (category: Category) => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "active") return isCategoryActive(category);
+    return !isCategoryActive(category);
   };
 
   const toggleExpand = (value: string) => {
@@ -332,15 +356,23 @@ export default function CategoriesPage() {
 
   // Filter and organize categories
   const mainCategories = categories.filter((c) => c.type === "category");
+  const hasActiveFilters = Boolean(search) || activeFilter !== "all";
   const filteredMainCategories = search
-    ? mainCategories.filter((c) =>
-        c.name.toLowerCase().includes(search.toLowerCase())
+    ? mainCategories.filter(
+        (c) =>
+          c.name.toLowerCase().includes(search.toLowerCase()) &&
+          matchesActiveFilter(c)
       )
-    : mainCategories;
+    : mainCategories.filter(matchesActiveFilter);
 
   // Get subcategories by parent category value
   const getSubcategories = (parentValue: string) =>
-    categories.filter((c) => c.type === "subcategory" && c.parentId === parentValue);
+    categories.filter(
+      (c) =>
+        c.type === "subcategory" &&
+        c.parentId === parentValue &&
+        matchesActiveFilter(c)
+    );
 
   // Stats
   const totalCategories = mainCategories.length;
@@ -353,13 +385,12 @@ export default function CategoriesPage() {
         title="Category Management"
         description="Manage categories and subcategories for posts and ads"
         icon={FolderTree}
-        children={
-          <Button variant="outline" size="sm" onClick={fetchCategories}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        }
-      />
+      >
+        <Button variant="outline" size="sm" onClick={fetchCategories}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </PageHeader>
 
       {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -403,20 +434,114 @@ export default function CategoriesPage() {
         </Card>
       </div>
 
-      {/* Search */}
+      {/* Filters */}
       <Card className="bg-card/50 border-border/50">
         <CardContent className="pt-6">
-          <form onSubmit={handleSearch}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search categories..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 bg-input/50 border-border/50"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Search
+              </label>
+              <form onSubmit={handleSearch}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search categories..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10 bg-input/50 border-border/50"
+                  />
+                </div>
+              </form>
             </div>
-          </form>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Active
+              </label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between bg-input/50 border-border/50"
+                  >
+                    {activeFilter === "all"
+                      ? "All Categories"
+                      : activeFilter === "active"
+                        ? "Active"
+                        : "Inactive"}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="start"
+                  className="w-full min-w-[200px] bg-card border-border/50"
+                >
+                  <DropdownMenuItem
+                    onClick={() => setActiveFilter("all")}
+                    className="cursor-pointer"
+                  >
+                    {activeFilter === "all" && <Check className="h-4 w-4 mr-2" />}
+                    <span className={activeFilter !== "all" ? "ml-6" : ""}>
+                      All Categories
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setActiveFilter("active")}
+                    className="cursor-pointer"
+                  >
+                    {activeFilter === "active" && (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    <span className={activeFilter !== "active" ? "ml-6" : ""}>
+                      Active
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setActiveFilter("inactive")}
+                    className="cursor-pointer"
+                  >
+                    {activeFilter === "inactive" && (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    <span className={activeFilter !== "inactive" ? "ml-6" : ""}>
+                      Inactive
+                    </span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="space-y-2 md:col-span-3">
+              <Button
+                variant="outline"
+                className="w-full md:w-fit bg-input/50 border-border/50"
+                onClick={clearAllFilters}
+                disabled={!hasActiveFilters}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/50">
+              <span className="text-sm text-muted-foreground">Active Filters:</span>
+              {search && (
+                <FilterBadge onRemove={() => setSearch("")}>
+                  Search: {search}
+                </FilterBadge>
+              )}
+              {activeFilter !== "all" && (
+                <FilterBadge onRemove={() => setActiveFilter("all")}>
+                  Active: {activeFilter === "active" ? "Yes" : "No"}
+                </FilterBadge>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -437,6 +562,7 @@ export default function CategoriesPage() {
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground w-[60%]">Category</TableHead>
+                <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Order</TableHead>
                 <TableHead className="text-muted-foreground w-[100px]">Actions</TableHead>
               </TableRow>
@@ -452,6 +578,7 @@ export default function CategoriesPage() {
                         <Skeleton className="h-4 w-40" />
                       </div>
                     </TableCell>
+                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                   </TableRow>
@@ -459,11 +586,11 @@ export default function CategoriesPage() {
               ) : filteredMainCategories.length === 0 ? (
                 // Empty state
                 <TableRow>
-                  <TableCell colSpan={3} className="h-48">
+                  <TableCell colSpan={4} className="h-48">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <FolderTree className="h-12 w-12 mb-4 opacity-50" />
                       <p>No categories found</p>
-                      {search && (
+                      {hasActiveFilters && (
                         <p className="text-sm mt-2">Try a different search term</p>
                       )}
                     </div>
@@ -529,6 +656,18 @@ export default function CategoriesPage() {
                             </div>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={isCategoryActive(category) ? "default" : "secondary"}
+                            className={
+                              isCategoryActive(category)
+                                ? "bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20"
+                                : "bg-muted text-muted-foreground hover:bg-muted"
+                            }
+                          >
+                            {isCategoryActive(category) ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-muted-foreground">
                           {category.order}
                         </TableCell>
@@ -585,6 +724,18 @@ export default function CategoriesPage() {
                                 </div>
                                 <p className="text-sm">{sub.name}</p>
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={isCategoryActive(sub) ? "default" : "secondary"}
+                                className={
+                                  isCategoryActive(sub)
+                                    ? "bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20"
+                                    : "bg-muted text-muted-foreground hover:bg-muted"
+                                }
+                              >
+                                {isCategoryActive(sub) ? "Active" : "Inactive"}
+                              </Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm">
                               {sub.order}
