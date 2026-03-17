@@ -1592,8 +1592,6 @@ export interface SponsorAd {
   views: number;
   clicks: number;
   expiresAt: string;
-  // External link (optional)
-  externalLink?: string;
   // Blacklist status (admin moderation)
   isBlacklisted?: boolean;
   slot?: number;
@@ -2093,7 +2091,6 @@ export async function updateSponsorAdSlot(
 export interface UpdateSponsorAdInput {
   title?: string;
   description?: string;
-  externalLink?: string;
   media?: string[];
   image?: string;
   state?: string;
@@ -2114,7 +2111,6 @@ export async function updateSponsorAd(
     
     if (input.title !== undefined) updateData.title = input.title;
     if (input.description !== undefined) updateData.description = input.description;
-    if (input.externalLink !== undefined) updateData.externalLink = input.externalLink;
     if (input.media !== undefined) updateData.media = input.media;
     if (input.image !== undefined) updateData.image = input.image;
     if (input.state !== undefined) updateData.state = input.state;
@@ -2240,7 +2236,6 @@ export interface CreateSponsorAdInput {
   category: string;
   subcategory?: string;
   slot: AdSlot;
-  externalLink?: string;
   phoneNumber?: string;
   website?: string;
 }
@@ -2284,7 +2279,6 @@ export async function createSponsorAd(input: CreateSponsorAdInput): Promise<Spon
         category: input.category,
         subcategory: input.subcategory || "",
         slot: input.slot - 1, // Store as slot - 1
-        externalLink: input.externalLink || "",
         status: "active",
         views: 0,
         clicks: 0,

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
@@ -597,7 +598,6 @@ interface PostCardProps {
 function PostCard({ post, onClick, showDistance = false }: PostCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isHovering, setIsHovering] = useState(false);
-  const [imgError, setImgError] = useState(false);
   
   // Use `media` field (correct field name from database)
   const firstMedia = post.media?.[0] || null;
@@ -633,7 +633,7 @@ function PostCard({ post, onClick, showDistance = false }: PostCardProps) {
     >
       {/* Media */}
       <div className="aspect-square bg-secondary/30 relative overflow-hidden">
-        {mediaUrl && !imgError ? (
+        {mediaUrl ? (
           isVideo ? (
             <>
               <video
@@ -660,12 +660,11 @@ function PostCard({ post, onClick, showDistance = false }: PostCardProps) {
               )}
             </>
           ) : (
-            <img
+            <ImageThumbnail
               src={mediaUrl}
               alt={post.title || "Post"}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              onError={() => setImgError(true)}
-          />
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
           )
         ) : (
           <div className="w-full h-full flex items-center justify-center">

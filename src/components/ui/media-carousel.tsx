@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, Play, Volume2, VolumeX, Pause, RefreshCw, AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 
 const LOAD_TIMEOUT_MS = 3000;
 
@@ -253,13 +254,10 @@ export function MediaCarousel({ media, className }: MediaCarouselProps) {
             </div>
           </div>
         ) : (
-          <img
+          <ImageThumbnail
             src={currentMedia.url}
             alt={`Media ${currentIndex + 1}`}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
           />
         )}
       </div>

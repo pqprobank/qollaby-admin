@@ -4,15 +4,11 @@ import { useRef, useCallback, useState } from "react";
 import { Upload, XCircle, Loader2 } from "lucide-react";
 import {
   MAX_VIDEO_UPLOAD_BYTES,
-  TARGET_VIDEO_MAX_BYTES,
   MAX_VIDEO_UPLOAD_LABEL,
-  TARGET_VIDEO_MAX_LABEL,
 } from "@/lib/upload-limits";
 import {
   compressVideo,
   extractPosterFromVideo,
-  isMp4File,
-  remuxToMp4,
 } from "@/lib/video-compress";
 
 export interface MediaUploadValue {
@@ -27,8 +23,6 @@ interface MediaUploadProps {
   accept?: string;
   /** Max size for video files (default 1 GB). */
   maxVideoSizeBytes?: number;
-  /** Compress videos larger than this to this size (default 200 MB). */
-  compressVideoToBytes?: number;
   multiple?: boolean;
   disabled?: boolean;
   /** Label for the required asterisk / description. */
@@ -44,7 +38,6 @@ export function MediaUpload({
   onChange,
   accept = DEFAULT_ACCEPT,
   maxVideoSizeBytes = MAX_VIDEO_UPLOAD_BYTES,
-  compressVideoToBytes = TARGET_VIDEO_MAX_BYTES,
   multiple = true,
   disabled = false,
   label = "Photo/Video",
@@ -76,22 +69,13 @@ export function MediaUpload({
           );
         }
 
-        if (isVideo && file.size > compressVideoToBytes) {
+        if (isVideo) {
           try {
-            resolvedFile = await compressVideo(file, compressVideoToBytes);
+            resolvedFile = await compressVideo(file);
           } catch (err) {
             revokePreviews(newPreviews);
             const message = err instanceof Error ? err.message : "Compression failed";
             throw new Error(`Could not compress "${file.name}": ${message}. Try a smaller video.`);
-          }
-        } else if (isVideo && !isMp4File(file)) {
-          // Non-MP4 videos (MOV, AVI, etc.) need container conversion for cross-browser compatibility
-          try {
-            resolvedFile = await remuxToMp4(file);
-          } catch (err) {
-            revokePreviews(newPreviews);
-            const message = err instanceof Error ? err.message : "Conversion failed";
-            throw new Error(`Could not convert "${file.name}" to MP4: ${message}. Try a different video.`);
           }
         }
 
@@ -117,7 +101,7 @@ export function MediaUpload({
         posters: [...(value.posters || []), ...newPosters],
       });
     },
-    [value, onChange, maxVideoSizeBytes, compressVideoToBytes, revokePreviews]
+    [value, onChange, maxVideoSizeBytes, revokePreviews]
   );
 
   const handleChange = useCallback(
@@ -156,7 +140,7 @@ export function MediaUpload({
         {label} <span className="text-red-500">*</span>
       </p>
       <p className="text-xs text-muted-foreground">
-        Video max {MAX_VIDEO_UPLOAD_LABEL}; non-MP4 videos auto-converted; files over {TARGET_VIDEO_MAX_LABEL} compressed.
+        Video max {MAX_VIDEO_UPLOAD_LABEL}; all videos auto-compressed to 720p.
       </p>
 
       <input

@@ -3,8 +3,6 @@
  * Uses @ffmpeg/ffmpeg (loaded dynamically, browser only).
  */
 
-import { TARGET_VIDEO_MAX_BYTES } from "./upload-limits";
-
 /** Check if a file is already in MP4 container format */
 export function isMp4File(file: File): boolean {
   return file.type === "video/mp4" || file.name.toLowerCase().endsWith(".mp4");
@@ -145,12 +143,15 @@ export async function extractPosterFromVideo(
 }
 
 /**
- * Compress a video file to at most targetMaxBytes (default 200 MB).
- * Runs in browser; may use significant memory for large inputs.
+ * Compress a video to 720p (max 1280px width) with CRF 23.
+ * Matches the mobile app's compression: `react-native-compressor` with
+ * `maxSize: 1280, compressionMethod: "auto"`.
+ *
+ * Runs in browser via @ffmpeg/ffmpeg WASM.
  */
 export async function compressVideo(
   file: File,
-  targetMaxBytes: number = TARGET_VIDEO_MAX_BYTES,
+  _targetMaxBytes?: number, // kept for API compat, no longer used
   onProgress?: CompressProgress
 ): Promise<File> {
   if (typeof window === "undefined") {
@@ -163,14 +164,13 @@ export async function compressVideo(
   const ext = file.name.split(".").pop()?.toLowerCase() || "mp4";
   const inputPath = `input.${ext}`;
   const outputPath = "output.mp4";
-  const durationPath = "duration.txt";
 
   onProgress?.(0, "Loading FFmpeg...");
   const ffmpeg = new FFmpeg();
 
   if (onProgress) {
     ffmpeg.on("progress", ({ progress }) => {
-      onProgress(Math.round(progress * 100), "Compressing...");
+      onProgress(Math.min(90, Math.round(progress * 100)), "Compressing...");
     });
   }
 
@@ -178,47 +178,19 @@ export async function compressVideo(
   onProgress?.(5, "Reading file...");
   await ffmpeg.writeFile(inputPath, await fetchFile(file));
 
-  onProgress?.(10, "Getting duration...");
-  const probeExit = await ffmpeg.ffprobe([
-    "-v",
-    "error",
-    "-show_entries",
-    "format=duration",
-    "-of",
-    "default=noprint_wrappers=1:nokey=1",
-    inputPath,
-    "-o",
-    durationPath,
-  ]);
-  if (probeExit !== 0) {
-    throw new Error("Could not read video duration");
-  }
-  const durationData = await ffmpeg.readFile(durationPath, "utf8");
-  const durationSec = Math.max(1, parseFloat(String(durationData).trim() || "1"));
-
-  const targetVideoBytes = targetMaxBytes * 0.9;
-  const targetBitrateK = Math.floor((targetVideoBytes * 8) / durationSec / 1000);
-
   onProgress?.(15, "Compressing video...");
   const TEN_MINUTES_MS = 10 * 60 * 1000;
   const exitCode = await ffmpeg.exec(
     [
-      "-i",
-      inputPath,
-      "-c:v",
-      "libx264",
-      "-b:v",
-      `${targetBitrateK}k`,
-      "-maxrate",
-      `${targetBitrateK}k`,
-      "-bufsize",
-      `${targetBitrateK * 2}k`,
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
-      "-y",
-      outputPath,
+      "-i", inputPath,
+      "-c:v", "libx264",
+      "-preset", "medium",
+      "-crf", "23",
+      "-vf", "scale='min(1280,iw)':-2",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-movflags", "+faststart",
+      "-y", outputPath,
     ],
     TEN_MINUTES_MS,
     {}
@@ -236,7 +208,6 @@ export async function compressVideo(
   try {
     await ffmpeg.deleteFile(inputPath);
     await ffmpeg.deleteFile(outputPath);
-    await ffmpeg.deleteFile(durationPath);
   } catch {
     // ignore cleanup errors
   }

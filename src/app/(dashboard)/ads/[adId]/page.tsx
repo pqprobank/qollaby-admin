@@ -49,7 +49,6 @@ import {
   RefreshCw,
   XCircle,
   Megaphone,
-  ExternalLink,
   TrendingUp,
   Shield,
   Phone,
@@ -346,20 +345,6 @@ export default function AdDetailPage() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Description</p>
                   <p className="text-sm whitespace-pre-wrap">{ad.description}</p>
-                </div>
-              )}
-              {ad.externalLink && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">External Link</p>
-                  <a
-                    href={ad.externalLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline flex items-center gap-1"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    {ad.externalLink}
-                  </a>
                 </div>
               )}
               {ad.phoneNumber && (

@@ -11,6 +11,7 @@ import {
   SponsorAdStatus,
 } from "@/lib/user-actions";
 import { getImageUrl, getVideoUrl, isVideoUrl } from "@/lib/appwrite";
+import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 import { VideoThumbnail } from "@/components/ui/video-thumbnail";
 import { getCategories, getSubcategories, Category } from "@/lib/category-actions";
 import { getStateFullName } from "@/lib/utils";
@@ -397,9 +398,11 @@ export default function UserAdsPage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {ads.map((ad) => {
-                  const firstMedia = ad.media?.[0] || "";
-                  const isFirstMediaVideo = isVideoUrl(firstMedia);
-                  const coverImage = ad.image || (!isFirstMediaVideo ? firstMedia : "");
+                  const mediaItems = ad.media || [];
+                  const firstVideoMedia = mediaItems.find((item) => isVideoUrl(item)) || "";
+                  const firstImageMedia = mediaItems.find((item) => !isVideoUrl(item)) || "";
+                  const coverImage = ad.image || firstImageMedia;
+                  const hasVideo = mediaItems.some((item) => isVideoUrl(item));
 
                   return (
                     <div
@@ -410,19 +413,25 @@ export default function UserAdsPage() {
                       {/* Media */}
                       <div className="relative aspect-[4/3]">
                         {coverImage ? (
-                          <img
+                          <ImageThumbnail
                             src={getImageUrl(coverImage, 400, 400)}
                             alt={ad.title}
                             className="w-full h-full object-cover"
                           />
-                        ) : isFirstMediaVideo ? (
-                          <VideoThumbnail src={getVideoUrl(firstMedia)} />
+                        ) : firstVideoMedia ? (
+                          <VideoThumbnail src={getVideoUrl(firstVideoMedia)} />
                         ) : (
                           <div className="w-full h-full bg-secondary/40" />
                         )}
-                        {isFirstMediaVideo && (
+                        {!coverImage && firstVideoMedia && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                             <Play className="h-10 w-10 text-white/80" />
+                          </div>
+                        )}
+                        {hasVideo && (
+                          <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/60 text-white text-xs font-medium flex items-center gap-1 z-10">
+                            <Play className="h-3 w-3" />
+                            Video
                           </div>
                         )}
                         {/* Status badge */}

@@ -58,7 +58,6 @@ import {
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-
 export default function PostDetailPage() {
   const params = useParams();
   const router = useRouter();

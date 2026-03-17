@@ -27,6 +27,7 @@ import LocationPicker, { PlaceValue } from "@/components/ui/location-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { getImageUrl, getVideoUrl, isVideoUrl, uploadFiles } from "@/lib/appwrite";
+import { ImageThumbnail } from "@/components/ui/image-thumbnail";
 import { VideoThumbnail } from "@/components/ui/video-thumbnail";
 import { MediaUpload } from "@/components/ui/media-upload";
 import { Category, getCategories, getSubcategories } from "@/lib/category-actions";
@@ -64,11 +65,9 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-
 interface CreateAdForm {
   title: string;
   description: string;
-  externalLink: string;
   location: PlaceValue | null;
   state: string;
   city: string;
@@ -85,7 +84,6 @@ interface CreateAdForm {
 const initialFormState: CreateAdForm = {
   title: "",
   description: "",
-  externalLink: "",
   location: null,
   state: "",
   city: "",
@@ -102,7 +100,6 @@ const initialFormState: CreateAdForm = {
 interface EditAdForm {
   title: string;
   description: string;
-  externalLink: string;
   location: PlaceValue | null;
   state: string;
   city: string;
@@ -136,7 +133,6 @@ export default function AdminAdsPage() {
   const [editForm, setEditForm] = useState<EditAdForm>({
     title: "",
     description: "",
-    externalLink: "",
     location: null,
     state: "",
     city: "",
@@ -257,7 +253,6 @@ export default function AdminAdsPage() {
         userId: admin.profile.userId,
         title: createForm.title,
         description: createForm.description || undefined,
-        externalLink: createForm.externalLink || undefined,
         media: mediaUrls,
         image: coverImageUrl || undefined,
         state: createForm.state,
@@ -310,7 +305,6 @@ export default function AdminAdsPage() {
     setEditForm({
       title: ad.title,
       description: ad.description || "",
-      externalLink: ad.externalLink || "",
       location: ad.state && ad.city ? {
         placeId: "",
         address: `${ad.city}, ${ad.state}`,
@@ -411,7 +405,6 @@ export default function AdminAdsPage() {
       await updateSponsorAd(editingAd.$id, {
         title: editForm.title,
         description: editForm.description || undefined,
-        externalLink: editForm.externalLink || undefined,
         media: finalMedia,
         image: nextCoverImage,
         state: editForm.state,
@@ -650,25 +643,33 @@ export default function AdminAdsPage() {
                       {ad ? (
                         <>
                           {(() => {
-                            const firstMedia = ad.media?.[0] || "";
-                            const isFirstMediaVideo = isVideoUrl(firstMedia);
-                            const coverImage = ad.image || (!isFirstMediaVideo ? firstMedia : "");
+                            const mediaItems = ad.media || [];
+                            const firstVideoMedia = mediaItems.find((item) => isVideoUrl(item)) || "";
+                            const firstImageMedia = mediaItems.find((item) => !isVideoUrl(item)) || "";
+                            const coverImage = ad.image || firstImageMedia;
+                            const hasVideo = mediaItems.some((item) => isVideoUrl(item));
                             return (
                               <>
                                 {coverImage ? (
-                                  <img
+                                  <ImageThumbnail
                                     src={getImageUrl(coverImage, 300, 400)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                   />
-                                ) : isFirstMediaVideo ? (
-                                  <VideoThumbnail src={getVideoUrl(firstMedia)} />
+                                ) : firstVideoMedia ? (
+                                  <VideoThumbnail src={getVideoUrl(firstVideoMedia)} />
                                 ) : (
                                   <div className="w-full h-full bg-secondary/40" />
                                 )}
-                                {isFirstMediaVideo && (
+                                {!coverImage && firstVideoMedia && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
                                     <Play className="h-8 w-8 text-white/80" />
+                                  </div>
+                                )}
+                                {hasVideo && (
+                                  <div className="absolute top-2 right-2 px-2 py-1 rounded bg-black/60 text-white text-xs font-medium flex items-center gap-1 z-10">
+                                    <Play className="h-3 w-3" />
+                                    Video
                                   </div>
                                 )}
                               </>
@@ -789,21 +790,6 @@ export default function AdminAdsPage() {
                 value={createForm.description}
                 onChange={(e) => setCreateForm((prev) => ({ ...prev, description: e.target.value }))}
                 className="w-full min-h-[100px] px-3 py-2 rounded-md bg-input/50 border border-border/50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-
-            {/* External Link */}
-            <div className="space-y-2">
-              <Label htmlFor="externalLink" className="text-sm font-medium">
-                External Link
-              </Label>
-              <Input
-                id="externalLink"
-                type="url"
-                placeholder="https://example.com (optional)"
-                value={createForm.externalLink}
-                onChange={(e) => setCreateForm((prev) => ({ ...prev, externalLink: e.target.value }))}
-                className="bg-input/50 border-border/50"
               />
             </div>
 
@@ -990,7 +976,7 @@ export default function AdminAdsPage() {
                       {isVideoUrl(url) ? (
                         <>
                           {idx === 0 && editingAd?.image ? (
-                            <img
+                            <ImageThumbnail
                               src={getImageUrl(editingAd.image, 200, 200)}
                               alt=""
                               className="w-full h-full object-cover"
@@ -1006,7 +992,7 @@ export default function AdminAdsPage() {
                           </div>
                         </>
                       ) : (
-                        <img src={getImageUrl(url, 200, 200)} alt="" className="w-full h-full object-cover" />
+                        <ImageThumbnail src={getImageUrl(url, 200, 200)} alt="" className="w-full h-full object-cover" />
                       )}
                       <button
                         type="button"
@@ -1063,19 +1049,6 @@ export default function AdminAdsPage() {
                 value={editForm.description}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
                 className="w-full min-h-[80px] px-3 py-2 rounded-md bg-input/50 border border-border/50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-            </div>
-
-            {/* External Link */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-externalLink">External Link</Label>
-              <Input
-                id="edit-externalLink"
-                type="url"
-                placeholder="https://example.com"
-                value={editForm.externalLink}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, externalLink: e.target.value }))}
-                className="bg-input/50 border-border/50"
               />
             </div>
 
