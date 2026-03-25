@@ -16,29 +16,26 @@ export const BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_ID || "posts";
 export const SPONSOR_ADS_BUCKET_ID = "68be1b43002b9e939b2e";
 
 /**
- * Upload a file to Appwrite Storage for sponsor ads
- * Returns full URL compatible with app format
- * @param file - The file to upload
- * @returns The full access URL
- */
-/**
- * Upload files via server-side API route (uses admin SDK to bypass client restrictions)
+ * Upload files directly to Appwrite Storage from the browser.
+ * Bypasses the Vercel API route to avoid its 4.5 MB request body limit.
  */
 export async function uploadFiles(files: File[]): Promise<string[]> {
-  const formData = new FormData();
-  files.forEach((file) => formData.append("files", file));
+  const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!;
+  const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!;
+  const urls: string[] = [];
 
-  const res = await fetch("/api/admin/upload", {
-    method: "POST",
-    body: formData,
-  });
+  for (const file of files) {
+    const uploaded = await storage.createFile(
+      SPONSOR_ADS_BUCKET_ID,
+      ID.unique(),
+      file
+    );
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to upload files");
+    const isVideo = file.type.startsWith("video/");
+    const baseUrl = `${endpoint}/storage/buckets/${SPONSOR_ADS_BUCKET_ID}/files/${uploaded.$id}/view?project=${projectId}`;
+    urls.push(isVideo ? `${baseUrl}&type=video` : baseUrl);
   }
 
-  const { urls } = await res.json();
   return urls;
 }
 
