@@ -233,7 +233,7 @@ export default function AdminAdsPage() {
 
     setCreating(true);
     try {
-      const mediaUrls = await uploadFiles(createForm.mediaFiles);
+      let mediaUrls = await uploadFiles(createForm.mediaFiles);
       const firstMediaUrl = mediaUrls[0] || "";
 
       let coverImageUrl = "";
@@ -245,6 +245,13 @@ export default function AdminAdsPage() {
           if (firstPoster) {
             const [posterUrl] = await uploadFiles([firstPoster]);
             coverImageUrl = posterUrl || "";
+
+            const thumbId = posterUrl?.match(/\/files\/([^/]+)\//)?.[1];
+            if (thumbId) {
+              mediaUrls = mediaUrls.map((url) =>
+                isVideoUrl(url) ? `${url}&thumb=${thumbId}` : url
+              );
+            }
           }
         }
       }
@@ -393,6 +400,13 @@ export default function AdminAdsPage() {
             if (firstPoster) {
               const [posterUrl] = await uploadFiles([firstPoster]);
               nextCoverImage = posterUrl || "";
+
+              const thumbId = posterUrl?.match(/\/files\/([^/]+)\//)?.[1];
+              if (thumbId) {
+                finalMedia = finalMedia.map((url) =>
+                  isVideoUrl(url) && !url.includes("thumb=") ? `${url}&thumb=${thumbId}` : url
+                );
+              }
             } else {
               nextCoverImage = editingAd.image || "";
             }
