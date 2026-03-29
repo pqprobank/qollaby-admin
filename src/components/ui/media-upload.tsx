@@ -108,13 +108,21 @@ export function MediaUpload({
         newPreviews.push(URL.createObjectURL(resolvedFile));
 
         if (isVideo) {
+          let poster: File | null = null;
           try {
-            const poster = await extractPosterFromVideo(resolvedFile);
-            newPosters.push(poster);
+            poster = await extractPosterFromVideo(resolvedFile);
           } catch (err) {
-            console.warn("[MediaUpload] Failed to extract poster:", err);
-            newPosters.push(null);
+            console.warn("[MediaUpload] Canvas poster extraction failed, trying with compressed copy:", err);
+            if (resolvedFile === file) {
+              try {
+                const compressed = await compressVideo(file);
+                poster = await extractPosterFromVideo(compressed);
+              } catch (err2) {
+                console.warn("[MediaUpload] Fallback poster extraction also failed:", err2);
+              }
+            }
           }
+          newPosters.push(poster);
         } else {
           newPosters.push(null);
         }
