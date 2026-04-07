@@ -38,6 +38,23 @@ export async function getProfileByUserId(userId: string): Promise<Profile | null
 }
 
 /**
+ * Get profile by username (for username-based login)
+ */
+export async function getProfileByUsername(username: string): Promise<Profile | null> {
+  try {
+    const res = await databases.listDocuments(
+      process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID!,
+      Collections.PROFILE,
+      [Query.equal("username", username.trim().toLowerCase()), Query.limit(1)]
+    );
+    return (res.documents[0] as unknown as Profile) || null;
+  } catch (error) {
+    console.error("Error fetching profile by username:", error);
+    return null;
+  }
+}
+
+/**
  * Check if user has admin role
  * Note: role can be null for existing users, treat null as "user"
  */
@@ -70,15 +87,21 @@ export async function getCurrentAdmin(): Promise<AdminUser | null> {
 }
 
 /**
- * Login with email and password
+ * Login with email or username + password
  */
-export async function loginWithEmail(email: string, password: string): Promise<AdminUser> {
-  const formattedEmail = email.trim().toLowerCase();
-  
-  // Create session
-  await account.createEmailPasswordSession(formattedEmail, password);
-  
-  // Get user
+export async function loginWithEmail(identifier: string, password: string): Promise<AdminUser> {
+  let email = identifier.trim().toLowerCase();
+
+  if (!email.includes("@")) {
+    const profile = await getProfileByUsername(email);
+    if (!profile?.email) {
+      throw new Error("No account found with that username");
+    }
+    email = profile.email;
+  }
+
+  await account.createEmailPasswordSession(email, password);
+
   const user = await account.get();
   
   // Check profile and admin role
