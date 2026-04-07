@@ -27,7 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, Mail, Lock, Shield, Sparkles } from "lucide-react";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  identifier: z.string().min(1, "Please enter your email or username"),
   password: z.string().min(1, "Please enter your password"),
 });
 
@@ -44,7 +44,7 @@ export default function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
@@ -53,7 +53,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     clearError();
     try {
-      await login(values.email, values.password);
+      await login(values.identifier, values.password);
       router.push("/");
     } catch {
       // Error is handled by context
@@ -120,15 +120,15 @@ export default function LoginPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-muted-foreground">Email</FormLabel>
+                    <FormLabel className="text-muted-foreground">Email or Username</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
-                          placeholder="admin@example.com"
+                          placeholder="admin@example.com or username"
                           className="pl-10 bg-input/50 border-border/50 focus:border-primary/50 transition-colors"
                           {...field}
                         />
