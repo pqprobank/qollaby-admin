@@ -130,6 +130,8 @@ export default function LoginPage() {
                         <Input
                           placeholder="admin@example.com or username"
                           className="pl-10 bg-input/50 border-border/50 focus:border-primary/50 transition-colors"
+                          autoCapitalize="off"
+                          autoCorrect="off"
                           {...field}
                         />
                       </div>
